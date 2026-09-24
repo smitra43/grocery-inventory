@@ -5,6 +5,7 @@ import { todayISO } from '../lib/dates';
 import { scale } from '../lib/macros';
 import { RECIPES } from '../lib/recipes';
 import { suggestRecipes, type RecipeMatch } from '../lib/suggest';
+import { MealKits } from './MealKits';
 
 function CookPanel({ match, onClose }: { match: RecipeMatch; onClose: () => void }) {
   const today = todayISO();
@@ -108,6 +109,8 @@ export function Recipes() {
   const matches = suggestRecipes(RECIPES, items, today, { maxMissing });
 
   return (
+    <>
+    <MealKits />
     <section>
       <header className="section-head">
         <h2>Recipes</h2>
@@ -126,5 +129,6 @@ export function Recipes() {
         <div className="grid">{matches.map((m) => <RecipeCard key={m.recipe.id} match={m} />)}</div>
       )}
     </section>
+    </>
   );
 }

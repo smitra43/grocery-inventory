@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db, getSettings } from '../db';
-import { spendByMonth } from '../lib/spending';
+import { kitPurchases, spendByMonth } from '../lib/spending';
 
 function monthLabel(ym: string) {
   const [y, m] = ym.split('-').map(Number);
@@ -9,8 +9,9 @@ function monthLabel(ym: string) {
 
 export function Spending() {
   const items = useLiveQuery(() => db.items.toArray(), []) ?? [];
+  const kits = useLiveQuery(() => db.kits.toArray(), []) ?? [];
   const settings = useLiveQuery(getSettings, []);
-  const months = spendByMonth(items);
+  const months = spendByMonth([...items, ...kitPurchases(kits)]);
   const budget = settings?.monthlyBudget;
 
   return (

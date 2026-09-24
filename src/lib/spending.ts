@@ -1,22 +1,35 @@
 import { addDays } from './dates';
-import type { Category, InventoryItem } from './types';
+import type { InventoryItem, MealKit } from './types';
 
 export interface MonthSpend {
   /** YYYY-MM */
   month: string;
   total: number;
-  byCategory: Partial<Record<Category, number>>;
+  /** Grocery categories plus "meal kits". */
+  byCategory: Record<string, number>;
   wasted: number;
+}
+
+interface Purchase {
+  purchasedOn: string;
+  price: number;
+  category: string;
+  status: string;
+}
+
+/** Meal kits as spending rows, under their own category. */
+export function kitPurchases(kits: MealKit[]): Purchase[] {
+  return kits.map((k) => ({ purchasedOn: k.deliveredOn, price: k.price, category: 'meal kits', status: k.status }));
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Monthly spend (by purchase month), newest first. `wasted` is money spent on items later marked wasted. */
-export function spendByMonth(items: InventoryItem[]): MonthSpend[] {
+export function spendByMonth(items: Purchase[]): MonthSpend[] {
   const months = new Map<string, MonthSpend>();
   for (const item of items) {
     const month = item.purchasedOn.slice(0, 7);
-    const m = months.get(month) ?? { month, total: 0, byCategory: {}, wasted: 0 };
+    const m: MonthSpend = months.get(month) ?? { month, total: 0, byCategory: {}, wasted: 0 };
     m.total += item.price;
     m.byCategory[item.category] = (m.byCategory[item.category] ?? 0) + item.price;
     if (item.status === 'wasted') m.wasted += item.price;

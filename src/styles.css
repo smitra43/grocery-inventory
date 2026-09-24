@@ -188,3 +188,13 @@ main { padding: 1rem 16px calc(80px + env(safe-area-inset-bottom)); max-width: 9
 .receipt-name .chip { flex: none; }
 .reading { display: grid; gap: 0.4rem; }
 .raw-ocr { font: 0.75rem/1.4 ui-monospace, monospace; background: var(--bg); border-radius: 8px; padding: 0.6rem; overflow-x: auto; max-height: 300px; }
+
+textarea { font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.7rem; width: 100%; resize: vertical; }
+a.button { text-decoration: none; color: inherit; }
+.kit header { display: grid; gap: 0.25rem; justify-items: start; }
+.kit-tag { font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); font-weight: 600; }
+.kit-meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.3rem; }
+@media (min-width: 600px) { .kit-meta { grid-template-columns: 1.4fr 0.8fr repeat(4, 1fr); } }
+.kit-meta label { display: flex; flex-direction: column; gap: 0.1rem; color: var(--muted); }
+.kit-meta input { min-height: 34px; padding: 0.25rem 0.4rem; font-size: 0.85rem; }
+a { color: var(--accent); }

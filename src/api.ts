@@ -69,3 +69,21 @@ export async function findDeals(locationId: string, terms: string[]): Promise<Re
   });
   return (await json<{ deals: Record<string, KrogerDeal | null> }>(res)).deals;
 }
+
+export interface MealLookup {
+  found: boolean;
+  url?: string;
+  title?: string;
+  servings?: number;
+  macros?: import('./lib/types').Macros | null;
+  ingredients?: string[];
+}
+
+/** Recipe details from homechef.com, via our server. Returns { found: false } when offline or not found. */
+export async function lookupHomeChefMeal(name: string): Promise<MealLookup> {
+  try {
+    return await json<MealLookup>(await api(`/api/homechef/meal?name=${encodeURIComponent(name)}`));
+  } catch {
+    return { found: false };
+  }
+}

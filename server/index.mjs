@@ -7,6 +7,7 @@
  *   GET  /api/kroger/locations?zip=45202
  *   GET  /api/kroger/products?term=milk&locationId=01400943
  *   POST /api/kroger/deals   { locationId, terms: ["chicken", "broccoli"] }
+ *   GET  /api/homechef/meal?name=Buttery%20Herb%20Chicken
  *
  * In production it also serves the built app from ./dist.
  */
@@ -16,6 +17,7 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bestDeal, normalizeProduct } from './deals.mjs';
+import { lookupMeal } from './homechef.mjs';
 
 try {
   process.loadEnvFile?.();
@@ -85,6 +87,12 @@ async function handleApi(req, res, url) {
   if (!url.pathname.endsWith('/status') && !authorized(req)) {
     return send(res, 401, { error: 'Wrong or missing access key. Enter it in Settings.' });
   }
+  if (url.pathname === '/api/homechef/meal') {
+    const name = (url.searchParams.get('name') ?? '').slice(0, 120);
+    if (!name.trim()) return send(res, 400, { error: 'name is required' });
+    return send(res, 200, await lookupMeal(name));
+  }
+
   const configured = Boolean(KROGER_CLIENT_ID && KROGER_CLIENT_SECRET);
   if (url.pathname === '/api/kroger/status') return send(res, 200, { configured });
   if (!configured) return send(res, 503, { error: 'Set KROGER_CLIENT_ID and KROGER_CLIENT_SECRET in .env' });

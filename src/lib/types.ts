@@ -74,3 +74,21 @@ export interface Settings {
   krogerLocationName?: string;
   monthlyBudget?: number;
 }
+
+export interface MealKit {
+  id?: number;
+  name: string;
+  provider: 'Home Chef' | 'Other';
+  /** ISO date the box arrived. */
+  deliveredOn: string;
+  /** ISO date to cook by (estimated from the protein; editable). */
+  cookBy: string;
+  servings: number;
+  /** Per serving. Missing until looked up or entered from the recipe card. */
+  macros?: Macros;
+  /** Share of the box price, for spending. */
+  price: number;
+  url?: string;
+  status: 'active' | 'cooked' | 'wasted';
+  closedOn?: string;
+}

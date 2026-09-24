@@ -8,6 +8,7 @@ A web app you install on your phone and desktop (a PWA) to:
 - **Track spending** by month and category, including money spent on food you threw away.
 - **Track macros**: cooking a recipe logs its macros, and there's a quick-add for everything else.
 - **Kroger deals**: finds sales at your store on the ingredients you're missing for each recipe.
+- **Meal kits (Home Chef)**: paste the shipping or order email and each meal becomes a kit with a cook-by date (seafood first), nutrition looked up from homechef.com, and its share of the box price in your spending.
 
 ## Run it
 
@@ -48,6 +49,10 @@ Everything runs in the phone's browser (`src/lib/ocr.ts`, `src/lib/receiptParser
 4. **Learn from you**: every line you confirm is saved as a correction keyed by the receipt text, and next time it's filled in without edits.
 
 Tested on a rendered Kroger-style receipt: a clean, flat photo reads 7/7 items correctly in about 2 seconds. A tilted, blurry, faded photo finds 6/7 items with correct prices but garbled names. Real photos will vary; take them flat, in good light, filling the frame.
+
+## Meal kits
+
+Home Chef has no API, so the app reads the email you already get. Paste it on **Recipes → Add Home Chef box**: meal names and the delivery date are pulled out (`src/lib/mealKits.ts`). The server then looks up each meal at `homechef.com/meals/<name>` and reads servings and per-serving calories, protein, carbs and fat, preferring the page's schema.org Recipe data (`server/homechef.mjs`). If a page can't be found or read, you type the numbers from the recipe card. That lookup is written against the standard Recipe format, not verified against Home Chef's live pages, so check the first box's numbers against the cards.
 
 ## Where your data lives
 

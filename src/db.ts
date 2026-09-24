@@ -1,7 +1,7 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { DEFAULT_TARGETS } from './lib/macros';
 import type { Alias } from './lib/receiptParser';
-import type { InventoryItem, MealLog, Settings } from './lib/types';
+import type { InventoryItem, MealKit, MealLog, Settings } from './lib/types';
 
 /**
  * Local-first storage in IndexedDB. Data lives on this device only;
@@ -13,6 +13,7 @@ export const db = new Dexie('grocery-inventory') as Dexie & {
   settings: EntityTable<Settings, 'id'>;
   /** Receipt-line corrections the user has confirmed, so the next scan gets them right. */
   aliases: EntityTable<Alias, 'key'>;
+  kits: EntityTable<MealKit, 'id'>;
 };
 
 db.version(1).stores({
@@ -23,6 +24,10 @@ db.version(1).stores({
 
 db.version(2).stores({
   aliases: 'key',
+});
+
+db.version(3).stores({
+  kits: '++id, status, cookBy, deliveredOn',
 });
 
 export async function getSettings(): Promise<Settings> {
@@ -40,6 +45,7 @@ export interface Backup {
   meals: MealLog[];
   settings: Settings | undefined;
   aliases?: Alias[];
+  kits?: MealKit[];
 }
 
 export async function exportAll(): Promise<Backup> {
@@ -50,6 +56,7 @@ export async function exportAll(): Promise<Backup> {
     meals: await db.meals.toArray(),
     settings: await db.settings.get('settings'),
     aliases: await db.aliases.toArray(),
+    kits: await db.kits.toArray(),
   };
 }
 
@@ -58,9 +65,10 @@ export async function importAll(backup: Backup): Promise<void> {
   if (backup.version !== 1 || !Array.isArray(backup.items) || !Array.isArray(backup.meals)) {
     throw new Error('Not a grocery-inventory backup file');
   }
-  await db.transaction('rw', [db.items, db.meals, db.settings, db.aliases], async () => {
-    await Promise.all([db.items.clear(), db.meals.clear(), db.settings.clear(), db.aliases.clear()]);
+  await db.transaction('rw', [db.items, db.meals, db.settings, db.aliases, db.kits], async () => {
+    await Promise.all([db.items.clear(), db.meals.clear(), db.settings.clear(), db.aliases.clear(), db.kits.clear()]);
     if (backup.aliases) await db.aliases.bulkPut(backup.aliases);
+    if (backup.kits) await db.kits.bulkAdd(backup.kits);
     await db.items.bulkAdd(backup.items);
     await db.meals.bulkAdd(backup.meals);
     if (backup.settings) await db.settings.put(backup.settings);
