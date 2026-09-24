@@ -1,0 +1,9 @@
+{
+  "name": "Larder — Grocery Inventory",
+  "short_name": "Larder",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f6f2",
+  "theme_color": "#2f6b4f",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
