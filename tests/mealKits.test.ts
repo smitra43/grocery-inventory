@@ -106,7 +106,15 @@ describe('parseRecipePage', () => {
           name: 'Buttery Herb Chicken with butternut squash &amp; Brussels sprouts',
           recipeYield: '2 servings',
           recipeIngredient: ['2 Boneless Skinless Chicken Breasts', '1 Butternut Squash'],
-          nutrition: { calories: '640 kcal', proteinContent: '48 g', carbohydrateContent: '38 g', fatContent: '33 g' },
+          nutrition: {
+            calories: '640 kcal',
+            fatContent: '33 g',
+            saturatedFatContent: '15 g',
+            sodiumContent: '1290 mg',
+            carbohydrateContent: '38 g',
+            fiberContent: '8 g',
+            proteinContent: '48 g',
+          },
         },
       ],
     })}</script></head></html>`;
@@ -115,17 +123,63 @@ describe('parseRecipePage', () => {
       servings: 2,
       macros: { calories: 640, protein: 48, carbs: 38, fat: 33 },
       ingredients: ['2 Boneless Skinless Chicken Breasts', '1 Butternut Squash'],
+      facts: [
+        { label: 'Calories', value: '640' },
+        { label: 'Fat', value: '33g' },
+        { label: 'Saturated fat', value: '15g' },
+        { label: 'Sodium', value: '1290mg' },
+        { label: 'Carbohydrates', value: '38g' },
+        { label: 'Fiber', value: '8g' },
+        { label: 'Protein', value: '48g' },
+      ],
     });
   });
 
-  it('falls back to a visible nutrition panel and ignores saturated fat', () => {
+  it('reads schema.org microdata the way Home Chef marks it up', () => {
+    // Shaped after the element found on homechef.com:
+    // <strong class="textSm float-right" itemprop="carbohydrateContent">55g</strong>
+    const row = (label: string, prop: string, value: string) =>
+      `<li class="flex"><span class="textSm">${label}</span><strong class="textSm float-right" itemprop="${prop}">${value}</strong></li>`;
+    const html = `<html><head><title>Buttery Herb Chicken | Home Chef</title></head><body itemscope itemtype="https://schema.org/Recipe">
+      <h1 itemprop="name">Buttery Herb Chicken</h1><meta itemprop="recipeYield" content="2 servings">
+      <ul itemprop="nutrition" itemscope itemtype="https://schema.org/NutritionInformation">
+      ${row('Calories', 'calories', '650')}${row('Fat', 'fatContent', '34g')}${row('Saturated Fat', 'saturatedFatContent', '16g')}
+      ${row('Cholesterol', 'cholesterolContent', '165mg')}${row('Sodium', 'sodiumContent', '1350mg')}
+      ${row('Carbohydrates', 'carbohydrateContent', '55g')}${row('Fiber', 'fiberContent', '9g')}${row('Sugar', 'sugarContent', '12g')}
+      ${row('Protein', 'proteinContent', '42g')}</ul></body></html>`;
+    const r = parseRecipePage(html)!;
+    expect(r.title).toBe('Buttery Herb Chicken');
+    expect(r.servings).toBe(2);
+    expect(r.macros).toEqual({ calories: 650, protein: 42, carbs: 55, fat: 34 });
+    expect(r.facts).toContainEqual({ label: 'Carbohydrates', value: '55g' });
+    expect(r.facts).toContainEqual({ label: 'Sodium', value: '1350mg' });
+    expect(r.facts).toHaveLength(9);
+  });
+
+  it('falls back to a visible nutrition panel and ignores saturated fat and added sugars', () => {
     const html = `<title>Herb Butter Chicken | Home Chef</title><div>Serves 2</div>
-      <ul><li>Calories 554</li><li>Saturated Fat 14g</li><li>Fat 31g</li><li>Carbohydrates 25g</li><li>Protein 44g</li></ul>`;
-    expect(parseRecipePage(html)).toMatchObject({
-      title: 'Herb Butter Chicken',
-      servings: 2,
-      macros: { calories: 554, protein: 44, carbs: 25, fat: 31 },
-    });
+      <ul><li>Calories 554</li><li>Saturated Fat 14g</li><li>Fat 31g</li><li>Cholesterol 150mg</li>
+      <li>Sodium 1717mg</li><li>Carbohydrates 25g</li><li>Dietary Fiber 6g</li><li>Added Sugars 2g</li>
+      <li>Sugar 7g</li><li>Protein 44g</li></ul>`;
+    const r = parseRecipePage(html)!;
+    expect(r).toMatchObject({ title: 'Herb Butter Chicken', servings: 2, macros: { calories: 554, protein: 44, carbs: 25, fat: 31 } });
+    expect(r.facts).toEqual([
+      { label: 'Calories', value: '554' },
+      { label: 'Fat', value: '31g' },
+      { label: 'Saturated fat', value: '14g' },
+      { label: 'Cholesterol', value: '150mg' },
+      { label: 'Sodium', value: '1717mg' },
+      { label: 'Carbohydrates', value: '25g' },
+      { label: 'Fiber', value: '6g' },
+      { label: 'Sugar', value: '7g' },
+      { label: 'Protein', value: '44g' },
+    ]);
+  });
+
+  it('reads a panel written number-first', () => {
+    const r = parseRecipePage('<title>X | Home Chef</title><p>620 Calories</p><p>40g Protein</p><p>51g Carbs</p><p>24g Fat</p><p>980mg Sodium</p>')!;
+    expect(r.macros).toEqual({ calories: 620, protein: 40, carbs: 51, fat: 24 });
+    expect(r.facts).toContainEqual({ label: 'Sodium', value: '980mg' });
   });
 
   it('returns no macros rather than partial ones', () => {
@@ -133,11 +187,18 @@ describe('parseRecipePage', () => {
   });
 });
 
-describe('kitPrice', () => {
+describe('kitPrices', () => {
+  it('splits a box total across kits by servings, to the cent', async () => {
+    const { kitPrices } = await import('../src/lib/mealKits');
+    const five = kitPrices(116.32, 'box', [2, 2, 2, 2, 2]);
+    expect(five).toEqual([23.27, 23.27, 23.26, 23.26, 23.26]);
+    expect(Math.round(five.reduce((a, b) => a + b, 0) * 100)).toBe(11632);
+    expect(kitPrices(60, 'box', [4, 2])).toEqual([40, 20]);
+  });
+
   it('prices per kit or per serving', async () => {
-    const { kitPrice } = await import('../src/lib/mealKits');
-    expect(kitPrice(9.99, 'kit', 2)).toBe(9.99);
-    expect(kitPrice(9.99, 'serving', 2)).toBe(19.98);
-    expect(kitPrice(9.99, 'serving', 4)).toBe(39.96);
+    const { kitPrices } = await import('../src/lib/mealKits');
+    expect(kitPrices(9.99, 'kit', [2, 4])).toEqual([9.99, 9.99]);
+    expect(kitPrices(9.99, 'serving', [2, 4])).toEqual([19.98, 39.96]);
   });
 });

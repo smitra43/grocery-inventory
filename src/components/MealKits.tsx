@@ -4,8 +4,8 @@ import { lookupHomeChefMeal } from '../api';
 import { db, getSettings, saveSettings } from '../db';
 import { daysBetween, todayISO } from '../lib/dates';
 import { scale } from '../lib/macros';
-import { estimateCookBy, homeChefUrl, kitPrice, kitsByUrgency, parseHomeChefEmail } from '../lib/mealKits';
-import type { Macros, MealKit } from '../lib/types';
+import { estimateCookBy, homeChefUrl, kitPrices, kitsByUrgency, parseHomeChefEmail } from '../lib/mealKits';
+import type { KitPriceUnit, Macros, MealKit, NutritionFact } from '../lib/types';
 
 type Draft = {
   name: string;
@@ -14,6 +14,7 @@ type Draft = {
   cookBy: string;
   macros: Partial<Macros>;
   url: string;
+  facts?: NutritionFact[];
   lookup: 'pending' | 'found' | 'missing';
 };
 
@@ -41,10 +42,12 @@ function ImportBox({ onDone }: { onDone: () => void }) {
   const [text, setText] = useState('');
   const settings = useLiveQuery(getSettings, []);
   const [price, setPrice] = useState<string | null>(null);
-  const [unit, setUnit] = useState<'serving' | 'kit' | null>(null);
-  // Default to the last price used; the user said $9.99 per kit.
-  const priceValue = price ?? String(settings?.kitPrice ?? 9.99);
-  const unitValue = unit ?? settings?.kitPriceUnit ?? 'kit';
+  const [unit, setUnit] = useState<KitPriceUnit | null>(null);
+  /** The box total as last typed, so switching units back and forth doesn't lose cents to rounding. */
+  const [exactTotal, setExactTotal] = useState<number | null>(null);
+  // Default to the last price used; a 5-meal box has been $116.32 all in.
+  const priceValue = price ?? String(settings?.kitPrice ?? 116.32);
+  const unitValue = unit ?? settings?.kitPriceUnit ?? 'box';
   const [deliveredOn, setDeliveredOn] = useState(today);
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
   const [error, setError] = useState('');
@@ -73,7 +76,7 @@ function ImportBox({ onDone }: { onDone: () => void }) {
       (cur ?? initial).map((d, i) => {
         const r = results[i];
         if (!r.found || !r.macros) return { ...d, lookup: 'missing', url: r.url ?? d.url };
-        return { ...d, lookup: 'found', macros: r.macros, servings: r.servings ?? d.servings, url: r.url ?? d.url };
+        return { ...d, lookup: 'found', macros: r.macros, facts: r.facts, servings: r.servings ?? d.servings, url: r.url ?? d.url };
       }),
     );
   }
@@ -81,19 +84,32 @@ function ImportBox({ onDone }: { onDone: () => void }) {
   const update = (i: number, patch: Partial<Draft>) => setDrafts((cur) => cur!.map((d, j) => (j === i ? { ...d, ...patch } : d)));
   const chosen = drafts?.filter((d) => d.include && d.name.trim()) ?? [];
 
-  const boxTotal = chosen.reduce((sum, d) => sum + kitPrice(Number(priceValue) || 0, unitValue, d.servings), 0);
+  const prices = kitPrices(Number(priceValue) || 0, unitValue, chosen.map((d) => d.servings || 2));
+  const boxTotal = prices.reduce((a, b) => a + b, 0);
+
+  /** Switching box/kit/serving converts the number so the box total stays the same. */
+  function changeUnit(next: KitPriceUnit) {
+    const total = exactTotal ?? boxTotal;
+    setExactTotal(total);
+    const kits = chosen.length || 1;
+    const servings = chosen.reduce((n, d) => n + (d.servings || 2), 0) || 1;
+    const per = next === 'box' ? total : next === 'kit' ? total / kits : total / servings;
+    setPrice(String(Math.round(per * 100) / 100));
+    setUnit(next);
+  }
 
   async function save() {
     await saveSettings({ kitPrice: Number(priceValue) || 0, kitPriceUnit: unitValue });
     await db.kits.bulkAdd(
-      chosen.map((d) => ({
+      chosen.map((d, i) => ({
         name: d.name.trim(),
         provider: 'Home Chef' as const,
         deliveredOn,
         cookBy: d.cookBy,
         servings: d.servings || 2,
         macros: complete(d.macros),
-        price: kitPrice(Number(priceValue) || 0, unitValue, d.servings || 2),
+        price: prices[i],
+        nutrition: d.facts,
         url: d.url,
         status: 'active' as const,
       })),
@@ -170,15 +186,22 @@ function ImportBox({ onDone }: { onDone: () => void }) {
           </ul>
           <div className="inline small kit-price">
             <label htmlFor="kit-price">Price $</label>
-            <input id="kit-price" type="number" min="0" step="0.01" inputMode="decimal" value={priceValue} onChange={(e) => setPrice(e.target.value)} />
-            <select id="kit-price-unit" aria-label="Price is per" value={unitValue} onChange={(e) => setUnit(e.target.value as 'serving' | 'kit')}>
+            <input id="kit-price" type="number" min="0" step="0.01" inputMode="decimal" value={priceValue} onChange={(e) => { setPrice(e.target.value); setExactTotal(null); }} />
+            <select id="kit-price-unit" aria-label="Price is" value={unitValue} onChange={(e) => changeUnit(e.target.value as KitPriceUnit)}>
+              <option value="box">for the whole box</option>
               <option value="kit">per meal kit</option>
               <option value="serving">per serving</option>
             </select>
           </div>
           <p className="small">
             Box total <strong className="num">${boxTotal.toFixed(2)}</strong>
-            <span className="muted"> for {chosen.length} kits. Check it against what Home Chef charged you; the app remembers this price for next time.</span>
+            {chosen.length > 0 && (
+              <span className="muted">
+                {' '}· ${(boxTotal / chosen.length).toFixed(2)} per kit · $
+                {(boxTotal / chosen.reduce((n, d) => n + (d.servings || 2), 0)).toFixed(2)} per serving. Use the amount Home Chef
+                charged (shipping and tax included); it's remembered for next time.
+              </span>
+            )}
           </p>
           <div className="form-actions">
             <button className="primary" onClick={save} disabled={chosen.length === 0}>Add {chosen.length} meal kits</button>
@@ -196,6 +219,7 @@ export function KitCard({ kit }: { kit: MealKit }) {
   const [cooking, setCooking] = useState(false);
   const [servings, setServings] = useState('1');
   const [macros, setMacros] = useState<Partial<Macros>>(kit.macros ?? {});
+  const [showFacts, setShowFacts] = useState(false);
   const label = cookByLabel(kit, today);
 
   async function cook() {
@@ -225,6 +249,24 @@ export function KitCard({ kit }: { kit: MealKit }) {
           <span className="muted">No nutrition yet. Add it when you cook to track macros.</span>
         )}
       </p>
+      {kit.nutrition && kit.nutrition.length > 0 && (
+        <>
+          <button className="link" onClick={() => setShowFacts(!showFacts)} aria-expanded={showFacts}>
+            {showFacts ? 'Hide' : 'Show'} nutrition facts
+          </button>
+          {showFacts && (
+            <dl className="facts">
+              <div className="facts-head"><dt>Amount per serving</dt></div>
+              {kit.nutrition.map((f) => (
+                <div key={f.label} className={/Saturated|Trans|Fiber|Sugar/.test(f.label) ? 'sub' : ''}>
+                  <dt>{f.label}</dt>
+                  <dd className="num">{f.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </>
+      )}
       {!cooking ? (
         <div className="form-actions">
           <button className="primary" onClick={() => setCooking(true)}>Cook this</button>

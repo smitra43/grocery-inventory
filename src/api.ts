@@ -77,6 +77,7 @@ export interface MealLookup {
   servings?: number;
   macros?: import('./lib/types').Macros | null;
   ingredients?: string[];
+  facts?: import('./lib/types').NutritionFact[];
 }
 
 /** Recipe details from homechef.com, via our server. Returns { found: false } when offline or not found. */

@@ -8,7 +8,7 @@ A web app you install on your phone and desktop (a PWA) to:
 - **Track spending** by month and category, including money spent on food you threw away.
 - **Track macros**: cooking a recipe logs its macros, and there's a quick-add for everything else.
 - **Kroger deals**: finds sales at your store on the ingredients you're missing for each recipe.
-- **Meal kits (Home Chef)**: paste the shipping or order email and each meal becomes a kit with a cook-by date (seafood first), nutrition looked up from homechef.com, and its price in your spending ($9.99 per kit by default, switchable to per serving and remembered).
+- **Meal kits (Home Chef)**: paste the shipping or order email and each meal becomes a kit with a cook-by date (seafood first), nutrition looked up from homechef.com, the full per-serving nutrition panel, and its share of the box total in your spending (the amount Home Chef charged, including shipping and tax; remembered for the next box).
 
 ## Run it
 
@@ -52,7 +52,7 @@ Tested on a rendered Kroger-style receipt: a clean, flat photo reads 7/7 items c
 
 ## Meal kits
 
-Home Chef has no API, so the app reads the email you already get. Paste it on **Recipes → Add Home Chef box**: meal names and the delivery date are pulled out (`src/lib/mealKits.ts`). The server then looks up each meal at `homechef.com/meals/<name>` and reads servings and per-serving calories, protein, carbs and fat, preferring the page's schema.org Recipe data (`server/homechef.mjs`). If a page can't be found or read, you type the numbers from the recipe card. That lookup is written against the standard Recipe format, not verified against Home Chef's live pages, so check the first box's numbers against the cards.
+Home Chef has no API, so the app reads the email you already get. Paste it on **Recipes → Add Home Chef box**: meal names and the delivery date are pulled out (`src/lib/mealKits.ts`). The server then looks up each meal at `homechef.com/meals/<name>` and reads servings and the per-serving nutrition panel (calories, fat, saturated fat, cholesterol, sodium, carbs, fiber, sugar, protein) from the page's schema.org microdata, e.g. `<strong itemprop="carbohydrateContent">55g</strong>` (`server/homechef.mjs`; JSON-LD and plain text are fallbacks). If a page can't be found or read, you type the numbers from the recipe card. The microdata reader matches the markup seen on homechef.com but hasn't run against the live site from this repo's tests, so check the first box's numbers against the cards.
 
 ## Where your data lives
 

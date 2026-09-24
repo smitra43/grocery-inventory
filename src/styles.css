@@ -200,3 +200,10 @@ a.button { text-decoration: none; color: inherit; }
 a { color: var(--accent); }
 .kit-price { flex-wrap: wrap; }
 .kit-price input { width: 6.5rem; }
+.facts { margin: 0.2rem 0 0; border-top: 3px solid var(--text); font-size: 0.85rem; }
+.facts > div { display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); padding: 0.2rem 0; }
+.facts dt { font-weight: 600; }
+.facts dd { margin: 0; }
+.facts .sub dt { font-weight: 400; padding-left: 1rem; }
+.facts .facts-head { font-size: 0.75rem; color: var(--muted); border-bottom: 1px solid var(--text); }
+.facts .facts-head dt { font-weight: 400; }

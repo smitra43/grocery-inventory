@@ -1,5 +1,5 @@
 import { addDays, daysBetween, toISO } from './dates';
-import type { MealKit } from './types';
+import type { KitPriceUnit, MealKit } from './types';
 
 const MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
 const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -96,8 +96,20 @@ export function kitsByUrgency(kits: MealKit[]): MealKit[] {
   return kits.filter((k) => k.status === 'active').sort((a, b) => a.cookBy.localeCompare(b.cookBy));
 }
 
-/** What one kit cost, from a price per serving or per kit. */
-export function kitPrice(price: number, unit: 'serving' | 'kit', servings: number): number {
-  const each = unit === 'serving' ? price * (servings || 1) : price;
-  return Math.round(each * 100) / 100;
+/**
+ * What each kit cost. "box" splits a box total across kits by servings (so a 4-serving
+ * kit carries twice a 2-serving kit's share), rounding so the parts add up to the total.
+ */
+export function kitPrices(price: number, unit: KitPriceUnit, servings: number[]): number[] {
+  const round = (n: number) => Math.round(n * 100) / 100;
+  if (unit === 'kit') return servings.map(() => round(price));
+  if (unit === 'serving') return servings.map((s) => round(price * (s || 1)));
+  const weights = servings.map((s) => s || 1);
+  const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+  const cents = Math.round(price * 100);
+  const parts = weights.map((w) => Math.floor((cents * w) / totalWeight));
+  // Hand leftover cents to the first kits so the parts sum exactly to the box total.
+  let left = cents - parts.reduce((a, b) => a + b, 0);
+  for (let i = 0; left > 0; i = (i + 1) % parts.length, left--) parts[i]++;
+  return parts.map((c) => c / 100);
 }

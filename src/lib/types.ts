@@ -75,7 +75,15 @@ export interface Settings {
   monthlyBudget?: number;
   /** Last meal-kit price used, remembered for the next box. */
   kitPrice?: number;
-  kitPriceUnit?: 'serving' | 'kit';
+  kitPriceUnit?: KitPriceUnit;
+}
+
+export type KitPriceUnit = 'box' | 'kit' | 'serving';
+
+/** One row of a nutrition panel, per serving, e.g. { label: 'Sodium', value: '1717mg' }. */
+export interface NutritionFact {
+  label: string;
+  value: string;
 }
 
 export interface MealKit {
@@ -89,6 +97,8 @@ export interface MealKit {
   servings: number;
   /** Per serving. Missing until looked up or entered from the recipe card. */
   macros?: Macros;
+  /** Full per-serving nutrition panel from the recipe page, for display. */
+  nutrition?: NutritionFact[];
   /** Share of the box price, for spending. */
   price: number;
   url?: string;
