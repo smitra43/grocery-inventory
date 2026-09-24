@@ -156,6 +156,20 @@ describe('parseRecipePage', () => {
     expect(r.facts).toHaveLength(9);
   });
 
+  it('reads calories, protein and carbs exactly as marked up on homechef.com', () => {
+    // Pasted from the live page's inspector (fat row in the same shape).
+    const html = `<title>Buttery Herb Chicken | Home Chef</title>
+      <strong class="textSm float-right" itemprop="calories">820</strong>
+      <div class="text float-left">Calories</div>
+      <div class="text float-left">Protein</div>
+      <strong class="textSm float-right" itemprop="proteinContent">42g</strong>
+      <strong class="textSm float-right" itemprop="carbohydrateContent">55g</strong>
+      <strong class="textSm float-right" itemprop="fatContent">49g</strong>`;
+    const r = parseRecipePage(html)!;
+    expect(r.macros).toEqual({ calories: 820, protein: 42, carbs: 55, fat: 49 });
+    expect(r.facts[0]).toEqual({ label: 'Calories', value: '820' });
+  });
+
   it('uses the exact markup seen on homechef.com and estimates calories if they are not tagged', () => {
     // Protein and carbs rows as pasted from the live page's inspector; fat in the same shape.
     const html = `<title>Buttery Herb Chicken | Home Chef</title>
