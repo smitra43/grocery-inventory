@@ -138,3 +138,89 @@ describe('classify / expandName', () => {
     expect(expandName('PPR TWLS')).toBe('Paper towels');
   });
 });
+
+describe('real Safeway receipt (OCR output from a phone photo)', () => {
+  // Tesseract's output for a real Safeway receipt photo, item section through the balance and
+  // payment lines (store address and card lines trimmed).
+  const SAFEWAY = `SAFEWAY 9
+           GROCERY
+SIG 100% JCE GRPFT 3.49 S
+SEAFOOD
+SMOKED SALMON LOX       4.99 S
+\\          |       PRODUCE
+1.36 1b @ $1.99 /lb     y
+WT      RADISH DAIKON           2.71°S
+LIQUOR
+      2 QTY TRUMER PIL . 17.98 T
+CRV BEER 6 PK TAX      0.60 T
+Regular Price    20.98
+Card Savings      3.00-
+TAX                       1.72
+x%%% BALANCE                31.49
+SNAP BAL DUE       11.19
+SNAP Purchase 05/15/19 23:17      |
+SNAP Purchase              11.19
+SNAP BALANCE                111.16
+CASH BALANCE                  0.00`.split('\n');
+
+  const r = parseReceipt(SAFEWAY);
+
+  it('finds exactly the four purchases', () => {
+    expect(r.items.map((i) => i.receiptText)).toEqual([
+      'SIG 100% JCE GRPFT',
+      'SMOKED SALMON LOX',
+      'WT RADISH DAIKON',
+      'TRUMER PIL .',
+    ]);
+  });
+
+  it('reads the weight printed above the item, the QTY prefix, and sale prices as paid', () => {
+    const [juice, lox, radish, beer] = r.items;
+    expect(juice).toMatchObject({ price: 3.49, name: '100% juice grpft' });
+    expect(lox).toMatchObject({ price: 4.99, category: 'seafood' });
+    expect(radish).toMatchObject({ name: 'Radish daikon', price: 2.71, quantity: 1.36, unit: 'lb' });
+    expect(beer).toMatchObject({ price: 17.98, quantity: 2 });
+  });
+
+  it('stops at the balance line and reads the date', () => {
+    expect(r.total).toBe(31.49);
+    expect(r.date).toBe('2019-05-15');
+  });
+});
+
+describe('OCR slips seen on real Safeway receipts', () => {
+  it('reads prices with a stray third decimal, symbol flags and trailing dots', () => {
+    expect(findPrice('SIG CHEESE PARMESA      2.499 S')?.value).toBe(2.49);
+    expect(findPrice('0 ORANG BLUEBERRIE     13.99 §')?.value).toBe(13.99);
+    expect(findPrice('CAREFREE PANTILINE.     1.00 T.')?.value).toBe(1);
+    expect(findPrice('Card Savinss      0.256-')).toMatchObject({ value: 0.25, negative: true });
+  });
+
+  it('treats misspelled Regular Price / Card Savings lines as information, and QTY lines above items', () => {
+    const r = parseReceipt([
+      '2 QTY',
+      'SKITTLES FILLED PL.     2.38 S',
+      'Regular Price     3.00',
+      'Card Savinss      0.62-',
+      'SIG PANTILINERS   :     0.99 T',
+      'Resular Price     1.29',
+      'Card Savings      0.30-',
+    ]);
+    expect(r.items.map((i) => [i.receiptText, i.price, i.quantity])).toEqual([
+      ['SKITTLES FILLED PL.', 2.38, 2],
+      ['SIG PANTILINERS :', 0.99, 1],
+    ]);
+    expect(r.items[1].isFood).toBe(false);
+  });
+
+  it('does not re-apply a savings line when OCR misread one digit of the sale price', () => {
+    // Real: 9.89 = 11.49 - 1.60, but OCR read the item as 9.99.
+    const r = parseReceipt(['TW PITCHERS RADLER.     9.99 T', 'Regular Price    11.49', 'Card Suvinps      1.60-']);
+    expect(r.items[0].price).toBe(9.99);
+  });
+
+  it('does not call a radish a dish', () => {
+    expect(classify('Radish daikon')).toMatchObject({ category: 'produce', isFood: true });
+    expect(classify('Dish soap').isFood).toBe(false);
+  });
+});

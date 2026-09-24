@@ -53,7 +53,7 @@ const PHRASES: Array<[RegExp, string]> = [
 const WORDS: Record<string, string> = {
   // store-brand prefixes carry no meaning for the pantry
   KRO: '', KROGER: '', KRGR: '', PS: '', PVT: '', SEL: '', HT: '', SMPL: '', TRTH: '',
-  CT: '', PK: '', OZ: '', EA: '', LB: '', GAL: 'gallon', HG: 'half gallon',
+  CT: '', PK: '', OZ: '', EA: '', LB: '', WT: '', SIG: '', QTY: '', GAL: 'gallon', HG: 'half gallon',
   BNLS: 'boneless', SKNLS: 'skinless', SKLS: 'skinless', CHKN: 'chicken', CHK: 'chicken', CKN: 'chicken',
   BRST: 'breast', BRS: 'breast', THGH: 'thigh', THGHS: 'thighs', DRMSTK: 'drumsticks', WNGS: 'wings',
   GRND: 'ground', GRD: 'ground', BF: 'beef', TKY: 'turkey', TRKY: 'turkey', PRK: 'pork', CHP: 'chop',
@@ -98,7 +98,7 @@ export function expandName(receiptText: string): string {
 // --- Category / storage ---------------------------------------------------
 
 const RULES: Array<[RegExp, Category, boolean?]> = [
-  [/towel|tissue|toilet|detergent|laundry|soap|dish|trash|foil|wrap|napkin|shampoo|cleaner|bleach|battery|diaper|\bbags?\b|sponge/, 'other', false],
+  [/towel|tissue|toilet|detergent|laundry|\bsoap|\bdish(es| soap)?\b|trash|\bfoil\b|plastic wrap|napkin|shampoo|cleaner|bleach|batter(y|ies)|diaper|\bbags?\b|sponge|pantiliner|liners?\b|charge\b/, 'other', false],
   [/broth|stock|soup|peanut butter|almond butter|coconut milk|\bsauce\b|salsa|\bcan(ned)?\b/, 'pantry'],
   [/salmon|shrimp|tilapia|tuna|\bcod\b|fish|crab|scallop/, 'seafood'],
   [/chicken|beef|turkey|pork|bacon|sausage|steak|\bham\b|lamb|chop|wings|drumstick|thigh/, 'meat'],
@@ -108,7 +108,7 @@ const RULES: Array<[RegExp, Category, boolean?]> = [
   [/frozen|ice cream/, 'frozen'],
   [/juice|water|soda|coffee|\btea\b|sparkling|kombucha|beer|wine/, 'beverages'],
   [/rice|pasta|spaghetti|beans|flour|sugar|cereal|oats|\boil\b|vinegar|honey|salt|spice|crackers|chips|granola|nuts|lentil/, 'pantry'],
-  [/apple|banana|berr|grape|avocado|tomato|potato|onion|pepper|broccoli|carrot|celery|cucumber|lettuce|romaine|spinach|mushroom|garlic|lemon|lime|orange|kale|squash|zucchini|cabbage|pear|peach|melon|herb|cilantro|basil|asparagus|corn|peas|greens/, 'produce'],
+  [/apple|banana|berr|grape|avocado|tomato|potato|onion|pepper|broccoli|carrot|celery|cucumber|lettuce|romaine|spinach|mushroom|garlic|lemon|lime|orange|kale|squash|zucchini|cabbage|pear|peach|melon|herb|cilantro|basil|asparagus|corn|peas|greens|radish|daikon|beet|salad/, 'produce'],
 ];
 
 export function classify(name: string): { category: Category; location: Location; isFood: boolean } {
@@ -134,9 +134,11 @@ export function classify(name: string): { category: Category; location: Location
 
 const OCR_DIGITS: Record<string, string> = { O: '0', o: '0', D: '0', I: '1', l: '1', '|': '1', S: '5', s: '5', B: '8', Z: '2' };
 
-const PRICE_RE = /(-)?\$?\s*(\d{1,4})\s*[.,]\s*(\d{2})\s*(-)?\s*(?:[A-Z]{1,2}\*?|(?<=\s)[1|])?\s*$/;
+// Tolerates OCR slips seen on real receipts: a stray third decimal ("2.499 S" for 2.49),
+// junk before the tax flag ("2.71°S"), a flag read as a symbol ("13.99 §"), trailing dots ("1.00 T.").
+const PRICE_RE = /(-)?\$?\s*(\d{1,4})\s*[.,]\s*(\d{2})\d?\s*(-)?\s*[°'"`*]*\s*(?:[A-Z§®$&]{1,2}\*?|(?<=\s)[1|])?\s*[.,:;|]*\s*$/;
 /** Same, for faint print where the decimal point vanished: "6 46 F". Only tried as a fallback. */
-const SPACED_PRICE_RE = /(?<=\s)(-)?\$?(\d{1,3}) (\d{2})(-)?(?:\s*[A-Z]{1,2}\*?|\s+[1|])?\s*$/;
+const SPACED_PRICE_RE = /(?<=\s)(-)?\$?(\d{1,3}) (\d{2})(-)?(?:\s*[A-Z§®]{1,2}\*?|\s+[1|])?\s*[.,:;|]*\s*$/;
 
 /** Trailing price on a line, tolerating common OCR digit confusions in the last tokens. */
 export function findPrice(line: string): { value: number; negative: boolean; index: number } | null {
@@ -161,9 +163,19 @@ export function findPrice(line: string): { value: number; negative: boolean; ind
 }
 
 const SKIP_RE =
-  /\b(SUB\s*-?\s*TOTAL|TOTAL|TAX|BALANCE|CHANGE|CASH|VISA|MASTERCARD|DEBIT|CREDIT|AMEX|DISCOVER|TEND(ER)?|PAYMENT|AUTH|APPROVED|REF(ERENCE)?|ITEMS?\s+SOLD|FUEL|POINTS|PTS|THANK|CASHIER|CUSTOMER|RECEIPT|ACCOUNT|ACCT|TERMINAL|TRANS(ACTION)?|EBT|CHIP|PLUS\s+CARD|SAVINGS\s+TOTAL|TOTAL\s+SAVINGS|YOU\s+SAVED|MEMBER)\b/i;
-const DISCOUNT_RE = /\b(SC|SAVINGS|SAVE|COUPON|CPN|DISC(OUNT)?|MFR|PROMO|DIGITAL|DIG|PRICE\s*CUT|BONUS)\b/i;
-const TOTAL_RE = /^\W*(BALANCE(\s+DUE)?|TOTAL)\b(?!\s+SAVINGS)/i;
+  /\b(SUB\s*-?\s*TOTAL|TOTAL|TAX|BALANCE|CHANGE|CASH|VISA|MASTERCARD|DEBIT|CREDIT|AMEX|DISCOVER|TEND(ER)?|PAYMENT|AUTH|APPROVED|REF(ERENCE)?|ITEMS?\s+SOLD|FUEL|POINTS|PTS|THANK|CASHIER|CUSTOMER|RECEIPT|ACCOUNT|ACCT|TERMINAL|TRANS(ACTION)?|EBT|CHIP|PLUS\s+CARD|SAVINGS\s+TOTAL|TOTAL\s+SAVINGS|YOU\s+SAVED|MEMBER|SNAP|WIC|BAL|DUE|CARD\s*#|CRV|BOTTLE\s+DEP(OSIT)?)\b/i;
+/** Department headers some stores print between groups of items (Safeway: "PRODUCE", "LIQUOR"). */
+const SECTION_RE =
+  /^\W*(GROCERY|PRODUCE|SEAFOOD|MEAT|MEAT\/SEAFOOD|DELI|BAKERY|DAIRY|FROZEN|REFRIG\/FROZEN|REFRIGERATED|LIQUOR|WINE|BEER|GENERAL MERCHANDISE|GM|HBC|HEALTH & BEAUTY|FLORAL|PHARMACY|GROC NONEDIBLE|NONEDIBLE|MISCELLANEOUS|BULK)\W*$/i;
+/** "Regular Price 20.98" (Safeway) is information; the item line already shows the price paid. */
+const REGULAR_RE = /^\W*(REG\.?|R[A-Z]{4,6}R)\s+PRICE\b/i; // OCR: "Resular Price" 
+/** "2 QTY TRUMER PIL 17.98" (Safeway): quantity prefix on the item line. */
+const QTY_PREFIX_RE = /^\s*(\d{1,2})\s*QTY\s+/i;
+/** "2 QTY" alone on a line, applying to the item below (Safeway). */
+const QTY_LINE_RE = /^\W*(\d{1,2})\s*QTY\W*$/i;
+const DISCOUNT_RE = /\b(SC|SAVINGS|SAVE|COUPON|CPN|DISC(OUNT)?|MFR|PROMO|DIGITAL|DIG|PRICE\s*CUT|BONUS|CARD\s+S[A-Z]{4,7})\b/i; // OCR: "Card Savinss" 
+// Allows a few characters of OCR junk before the word ("x%%% BALANCE", "**** BALANCE").
+const TOTAL_RE = /^\W*(?:\S{0,5}\s+)?(BALANCE(\s+DUE)?|TOTAL)\b(?!\s+(SAVINGS|TAX|ITEMS|NUMBER))/i;
 /** "1.62 lb @ 3.99 /lb". Loose on purpose: faint print loses the decimal point and "@" often reads as "4" or "a". */
 const WEIGHT_RE = /(\d+)\s*[.,]?\s*(\d{2})\s*(lbs?|kg|oz)\b.*?\/\s*(lbs?|kg|oz)\b/i;
 const UNIT_PRICE_RE = /[@4a]\s*\$?\s*(\d+)\s*[.,]\s*(\d{2})\s*\/\s*(?:lbs?|kg|oz)\b/i;
@@ -197,6 +209,14 @@ export function parseReceipt(lines: string[], aliases: Map<string, Alias> = new 
   let justAdded: ParsedItem | null = null;
   /** A "2 @ 1.25" line waiting for the item whose price is 2 × 1.25. */
   let pendingMulti: { qty: number; total: number } | null = null;
+  /** A "2 QTY" line printed above its item. */
+  let pendingQty: number | null = null;
+  /** A weight line printed above its item (Safeway), waiting for the next item. */
+  let pendingWeight: { qty: number; unit: Unit } | null = null;
+  /** Last "Regular Price" seen, to recognize the informational savings line after it. */
+  let regularPrice: number | null = null;
+  /** Everything after the total/balance line is payment and loyalty info. */
+  let ended = false;
   const matchesMulti = (item: ParsedItem | null, m: { total: number }) => item && Math.abs(item.price - m.total) < 0.02;
 
   const add = (text: string, price: number): ParsedItem | null => {
@@ -235,13 +255,33 @@ export function parseReceipt(lines: string[], aliases: Map<string, Alias> = new 
       }
     }
 
+    if (ended) continue;
     const price = findPrice(line);
     const addedBefore = justAdded;
     justAdded = null;
 
     if (TOTAL_RE.test(line)) {
-      if (price && !/SUB/i.test(line)) total = price.value;
+      if (price && !/SUB/i.test(line)) {
+        total = price.value;
+        ended = true;
+      }
       pendingName = null;
+      continue;
+    }
+
+    if (SECTION_RE.test(line.replace(/^[^A-Za-z]+/, ''))) {
+      pendingName = null;
+      continue;
+    }
+
+    const qtyLine = QTY_LINE_RE.exec(line);
+    if (qtyLine) {
+      pendingQty = Number(qtyLine[1]);
+      continue;
+    }
+
+    if (REGULAR_RE.test(line)) {
+      regularPrice = price?.value ?? null;
       continue;
     }
 
@@ -252,15 +292,19 @@ export function parseReceipt(lines: string[], aliases: Map<string, Alias> = new 
       const unitPrice = UNIT_PRICE_RE.exec(line);
       // Weight line with its own total after "/lb": the name was on the line above.
       const hasOwnTotal = price && price.index >= weight.index + weight[0].length - 1;
-      let target = addedBefore;
+      const each = unitPrice ? Number(`${unitPrice[1]}.${unitPrice[2]}`) : 0;
+      const expected = Math.round(qty * each * 100) / 100;
+      let target: ParsedItem | null = null;
       if (pendingName && hasOwnTotal) target = add(pendingName, price.value);
-      else if (!target && pendingName) {
-        const each = unitPrice ? Number(`${unitPrice[1]}.${unitPrice[2]}`) : 0;
-        target = add(pendingName, Math.round(qty * each * 100) / 100);
-      }
+      else if (pendingName) target = add(pendingName, expected);
+      // Kroger prints the weight under its item; Safeway prints it above. Attach to the item
+      // just added only if its price fits the weight, otherwise hold it for the next item.
+      else if (addedBefore && (!each || Math.abs(addedBefore.price - expected) < 0.03)) target = addedBefore;
       if (target) {
         target.quantity = qty;
         target.unit = unit;
+      } else {
+        pendingWeight = { qty, unit };
       }
       pendingName = null;
       continue;
@@ -285,7 +329,10 @@ export function parseReceipt(lines: string[], aliases: Map<string, Alias> = new 
 
     if (price && (price.negative || DISCOUNT_RE.test(line))) {
       const last = items[items.length - 1];
-      if (last) last.price = Math.max(0, Math.round((last.price - price.value) * 100) / 100);
+      // 15¢ slack: an OCR misread in any of the three numbers shouldn't turn information into a second discount.
+      const alreadyApplied = regularPrice !== null && last && Math.abs(regularPrice - price.value - last.price) <= 0.15;
+      if (last && !alreadyApplied) last.price = Math.max(0, Math.round((last.price - price.value) * 100) / 100);
+      regularPrice = null;
       continue;
     }
 
@@ -295,9 +342,19 @@ export function parseReceipt(lines: string[], aliases: Map<string, Alias> = new 
     }
 
     if (price) {
-      const namePart = line.slice(0, price.index);
+      let namePart = line.slice(0, price.index);
+      const qtyPrefix = QTY_PREFIX_RE.exec(namePart);
+      if (qtyPrefix) namePart = namePart.slice(qtyPrefix[0].length);
       if (letters(namePart) >= 2) justAdded = add(namePart, price.value);
       else if (pendingName) justAdded = add(pendingName, price.value);
+      if (justAdded && (qtyPrefix || pendingQty)) justAdded.quantity = Number(qtyPrefix?.[1] ?? pendingQty);
+      pendingQty = null;
+      if (justAdded && pendingWeight) {
+        justAdded.quantity = pendingWeight.qty;
+        justAdded.unit = pendingWeight.unit;
+      }
+      pendingWeight = null;
+      regularPrice = null;
       if (pendingMulti && justAdded && matchesMulti(justAdded, pendingMulti)) justAdded.quantity = pendingMulti.qty;
       pendingMulti = null;
       pendingName = null;
