@@ -165,3 +165,20 @@ main { padding: 1rem 16px calc(80px + env(safe-area-inset-bottom)); max-width: 9
 .deals { list-style: none; padding: 0; margin: 0.4rem 0 0; display: grid; gap: 0.4rem; font-size: 0.88rem; }
 .deals li { display: flex; flex-direction: column; }
 .price s { color: var(--muted); }
+
+.receipt-row { display: flex; gap: 0.6rem; align-items: flex-start; border-bottom: 1px solid var(--border); padding: 0.5rem 0; }
+.receipt-row.faded { opacity: 0.5; }
+.receipt-row > input[type='checkbox'] { width: 22px; height: 22px; min-height: 0; margin-top: 0.6rem; flex: none; }
+.receipt-fields { flex: 1; display: grid; gap: 0.3rem; min-width: 0; }
+.receipt-text { font-family: ui-monospace, monospace; font-size: 0.75rem; }
+.receipt-meta { display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.3rem; }
+.receipt-meta > :nth-child(1), .receipt-meta > :nth-child(2) { grid-column: span 3; }
+.receipt-meta > :nth-child(n + 3) { grid-column: span 2; }
+@media (min-width: 600px) {
+  .receipt-meta { grid-template-columns: 1.2fr 1fr 0.7fr 0.9fr 0.9fr; }
+  .receipt-meta > * { grid-column: auto !important; }
+}
+.money { position: relative; display: block; }
+.money::before { content: '$'; position: absolute; left: 0.45rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 0.85rem; }
+.money input { padding-left: 1.1rem !important; }
+.receipt-meta input, .receipt-meta select { min-height: 34px; padding: 0.25rem 0.4rem; font-size: 0.85rem; }

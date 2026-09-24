@@ -4,6 +4,7 @@ import { db } from '../db';
 import { todayISO } from '../lib/dates';
 import { daysLeft, estimateExpiry, freshness } from '../lib/expiry';
 import type { Category, InventoryItem, Location, Unit } from '../lib/types';
+import { ReceiptScan } from './ReceiptScan';
 
 export const CATEGORIES: Category[] = ['produce', 'meat', 'seafood', 'dairy', 'eggs', 'bakery', 'pantry', 'frozen', 'beverages', 'other'];
 const LOCATIONS: Location[] = ['fridge', 'freezer', 'pantry'];
@@ -149,6 +150,7 @@ function AddItemForm({ onDone }: { onDone: () => void }) {
 export function Inventory() {
   const today = todayISO();
   const [adding, setAdding] = useState(false);
+  const [scanning, setScanning] = useState(false);
   const [filter, setFilter] = useState<'all' | Location>('all');
   const [showClosed, setShowClosed] = useState(false);
   const items = useLiveQuery(() => db.items.orderBy('expiresOn').toArray(), []) ?? [];
@@ -160,8 +162,14 @@ export function Inventory() {
     <section>
       <header className="section-head">
         <h2>Inventory</h2>
-        {!adding && <button className="primary" onClick={() => setAdding(true)}>+ Add groceries</button>}
+        {!adding && !scanning && (
+          <div className="form-actions">
+            <button className="primary" onClick={() => setScanning(true)}>Scan receipt</button>
+            <button onClick={() => setAdding(true)}>+ Add by hand</button>
+          </div>
+        )}
       </header>
+      {scanning && <ReceiptScan onDone={() => setScanning(false)} />}
       {adding && <AddItemForm onDone={() => setAdding(false)} />}
       <div className="tabs-inline" role="tablist">
         {(['all', ...LOCATIONS] as const).map((l) => (

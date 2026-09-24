@@ -2,6 +2,7 @@
 
 A web app you install on your phone and desktop (a PWA) to:
 
+- **Scan receipts**: photograph a receipt and Claude reads it into line items. You review and edit everything before it's saved.
 - **Track groceries**: what you bought, when, how much, what you paid, and when it expires. If you leave the expiry blank, it's estimated from the category and where you store it.
 - **Suggest recipes** ranked by how much soon-to-expire food they use up.
 - **Track spending** by month and category, including money spent on food you threw away.
@@ -12,13 +13,15 @@ A web app you install on your phone and desktop (a PWA) to:
 
 ```bash
 npm install
-cp .env.example .env        # add Kroger keys (optional, only needed for deals)
+cp .env.example .env        # add keys: Anthropic (receipt scanning) and Kroger (deals); both optional
 npm run build && npm run server   # http://localhost:8787
 ```
 
 For development: `npm run server` in one terminal and `npm run dev` in another (Vite proxies `/api` to the server).
 
-To install on your phone, open the site in Safari or Chrome and choose "Add to Home Screen". Service workers need HTTPS, so on a phone this only works once the app is deployed (any Node host works).
+### Android
+
+Deploy the server somewhere with HTTPS (any Node host), open the URL in Chrome on your phone, and tap **⋮ → Install app**. It installs with its own icon, opens full-screen, and "Scan receipt" opens the camera. Installing needs HTTPS, so a plain `http://` address on your home network won't install.
 
 ## Kroger setup
 
@@ -28,6 +31,12 @@ To install on your phone, open the site in Safari or Chrome and choose "Add to H
 4. On **Deals**, click **Check deals**. Kroger responses are cached for 6 hours.
 
 **Limitation:** Kroger's public API has no purchase or order history. "Connecting your account" can't import what you bought. Deals use the Products API, which gives regular and promo prices per store.
+
+## Receipt scanning
+
+Set `ANTHROPIC_API_KEY` in `.env`. The photo is shrunk on the phone, and long receipts are split into overlapping slices so small print stays readable. The server then sends it to Claude (`claude-opus-5` by default; override with `RECEIPT_MODEL`). Claude returns structured line items: it expands abbreviations like "KRO BNLS CHKN BRST", folds savings lines into item prices, and skips tax and totals. Non-food items arrive unticked. Expiry dates are estimated, because receipts don't print them.
+
+The request opts into server-side refusal fallbacks (`fallbacks: "default"`), so if a request is declined it's retried on another model instead of failing.
 
 ## Where your data lives
 
@@ -48,7 +57,7 @@ tests/          vitest
 ## Not built yet (in rough priority order)
 
 1. **Sync between devices**: needs a hosted backend (e.g. Supabase) and a login.
-2. **Faster entry**: barcode scanning, and receipt OCR (photo → line items).
+2. **Faster entry**: barcode scanning for single items.
 3. **Scheduled deal alerts**: a daily server job with Web Push. Today the app checks when you click the button.
 4. **More recipes**: the library has 16 built-in recipes. Options: a recipe API such as Spoonacular, or generating recipes with an LLM from what's in the fridge.
 5. **Per-item nutrition**: macros come from recipes and manual entries, not from each grocery item.
