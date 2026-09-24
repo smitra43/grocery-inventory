@@ -25,7 +25,7 @@ For development: `npm run server` in one terminal and `npm run dev` in another (
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/smitra43/grocery-inventory)
 
 1. Click the button above and sign in to Render with GitHub (the free plan is enough). Render reads `render.yaml` and sets up the web service. (Or: **New → Blueprint** → choose this repo.)
-2. The Kroger keys are optional; leave them blank for now. `APP_KEY` is generated for you; copy it from the service's **Environment** tab.
+2. Click **Deploy Blueprint** (or **Apply**). `APP_KEY` is generated for you; copy it from the service's **Environment** tab. Kroger keys can be added there later.
 3. When the deploy finishes, open the `https://larder-….onrender.com` URL in Chrome on your phone and tap **⋮ → Install app**.
 4. In the app, go to **Settings → Server access key** and paste the `APP_KEY` (only needed for Kroger deals).
 

@@ -1,4 +1,6 @@
 # One-click deploy on Render: Dashboard → New → Blueprint → pick this repo.
+# Kroger keys aren't asked for here; add KROGER_CLIENT_ID and KROGER_CLIENT_SECRET
+# later under the service's Environment tab when you want deals.
 services:
   - type: web
     name: larder
@@ -10,7 +12,3 @@ services:
     envVars:
       - key: APP_KEY
         generateValue: true
-      - key: KROGER_CLIENT_ID
-        sync: false
-      - key: KROGER_CLIENT_SECRET
-        sync: false
