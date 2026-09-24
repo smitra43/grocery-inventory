@@ -132,3 +132,12 @@ describe('parseRecipePage', () => {
     expect(parseRecipePage('<title>Something | Home Chef</title><p>Calories 500</p>')?.macros).toBeNull();
   });
 });
+
+describe('kitPrice', () => {
+  it('prices per kit or per serving', async () => {
+    const { kitPrice } = await import('../src/lib/mealKits');
+    expect(kitPrice(9.99, 'kit', 2)).toBe(9.99);
+    expect(kitPrice(9.99, 'serving', 2)).toBe(19.98);
+    expect(kitPrice(9.99, 'serving', 4)).toBe(39.96);
+  });
+});

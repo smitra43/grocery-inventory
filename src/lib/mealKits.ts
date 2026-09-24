@@ -95,3 +95,9 @@ export function homeChefUrl(name: string): string {
 export function kitsByUrgency(kits: MealKit[]): MealKit[] {
   return kits.filter((k) => k.status === 'active').sort((a, b) => a.cookBy.localeCompare(b.cookBy));
 }
+
+/** What one kit cost, from a price per serving or per kit. */
+export function kitPrice(price: number, unit: 'serving' | 'kit', servings: number): number {
+  const each = unit === 'serving' ? price * (servings || 1) : price;
+  return Math.round(each * 100) / 100;
+}

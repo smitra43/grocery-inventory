@@ -8,7 +8,7 @@ A web app you install on your phone and desktop (a PWA) to:
 - **Track spending** by month and category, including money spent on food you threw away.
 - **Track macros**: cooking a recipe logs its macros, and there's a quick-add for everything else.
 - **Kroger deals**: finds sales at your store on the ingredients you're missing for each recipe.
-- **Meal kits (Home Chef)**: paste the shipping or order email and each meal becomes a kit with a cook-by date (seafood first), nutrition looked up from homechef.com, and its share of the box price in your spending.
+- **Meal kits (Home Chef)**: paste the shipping or order email and each meal becomes a kit with a cook-by date (seafood first), nutrition looked up from homechef.com, and its price in your spending ($9.99 per kit by default, switchable to per serving and remembered).
 
 ## Run it
 

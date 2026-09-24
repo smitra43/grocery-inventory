@@ -1,10 +1,10 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useState } from 'react';
 import { lookupHomeChefMeal } from '../api';
-import { db } from '../db';
+import { db, getSettings, saveSettings } from '../db';
 import { daysBetween, todayISO } from '../lib/dates';
 import { scale } from '../lib/macros';
-import { estimateCookBy, homeChefUrl, kitsByUrgency, parseHomeChefEmail } from '../lib/mealKits';
+import { estimateCookBy, homeChefUrl, kitPrice, kitsByUrgency, parseHomeChefEmail } from '../lib/mealKits';
 import type { Macros, MealKit } from '../lib/types';
 
 type Draft = {
@@ -39,7 +39,12 @@ function cookByLabel(kit: MealKit, today: string): { text: string; cls: string }
 function ImportBox({ onDone }: { onDone: () => void }) {
   const today = todayISO();
   const [text, setText] = useState('');
-  const [boxPrice, setBoxPrice] = useState('');
+  const settings = useLiveQuery(getSettings, []);
+  const [price, setPrice] = useState<string | null>(null);
+  const [unit, setUnit] = useState<'serving' | 'kit' | null>(null);
+  // Default to the last price used; the user said $9.99 per kit.
+  const priceValue = price ?? String(settings?.kitPrice ?? 9.99);
+  const unitValue = unit ?? settings?.kitPriceUnit ?? 'kit';
   const [deliveredOn, setDeliveredOn] = useState(today);
   const [drafts, setDrafts] = useState<Draft[] | null>(null);
   const [error, setError] = useState('');
@@ -76,8 +81,10 @@ function ImportBox({ onDone }: { onDone: () => void }) {
   const update = (i: number, patch: Partial<Draft>) => setDrafts((cur) => cur!.map((d, j) => (j === i ? { ...d, ...patch } : d)));
   const chosen = drafts?.filter((d) => d.include && d.name.trim()) ?? [];
 
+  const boxTotal = chosen.reduce((sum, d) => sum + kitPrice(Number(priceValue) || 0, unitValue, d.servings), 0);
+
   async function save() {
-    const share = chosen.length ? Math.round(((Number(boxPrice) || 0) / chosen.length) * 100) / 100 : 0;
+    await saveSettings({ kitPrice: Number(priceValue) || 0, kitPriceUnit: unitValue });
     await db.kits.bulkAdd(
       chosen.map((d) => ({
         name: d.name.trim(),
@@ -86,7 +93,7 @@ function ImportBox({ onDone }: { onDone: () => void }) {
         cookBy: d.cookBy,
         servings: d.servings || 2,
         macros: complete(d.macros),
-        price: share,
+        price: kitPrice(Number(priceValue) || 0, unitValue, d.servings || 2),
         url: d.url,
         status: 'active' as const,
       })),
@@ -161,11 +168,18 @@ function ImportBox({ onDone }: { onDone: () => void }) {
               </li>
             ))}
           </ul>
-          <label className="inline small">
-            Box price $
-            <input id="kit-price" type="number" min="0" step="0.01" inputMode="decimal" value={boxPrice} onChange={(e) => setBoxPrice(e.target.value)} placeholder="optional" />
-          </label>
-          <p className="muted small">The box price is split evenly across the meals for your spending totals.</p>
+          <div className="inline small kit-price">
+            <label htmlFor="kit-price">Price $</label>
+            <input id="kit-price" type="number" min="0" step="0.01" inputMode="decimal" value={priceValue} onChange={(e) => setPrice(e.target.value)} />
+            <select id="kit-price-unit" aria-label="Price is per" value={unitValue} onChange={(e) => setUnit(e.target.value as 'serving' | 'kit')}>
+              <option value="kit">per meal kit</option>
+              <option value="serving">per serving</option>
+            </select>
+          </div>
+          <p className="small">
+            Box total <strong className="num">${boxTotal.toFixed(2)}</strong>
+            <span className="muted"> for {chosen.length} kits. Check it against what Home Chef charged you; the app remembers this price for next time.</span>
+          </p>
           <div className="form-actions">
             <button className="primary" onClick={save} disabled={chosen.length === 0}>Add {chosen.length} meal kits</button>
             <button onClick={() => setDrafts(null)}>Back</button>

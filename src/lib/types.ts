@@ -73,6 +73,9 @@ export interface Settings {
   krogerLocationId?: string;
   krogerLocationName?: string;
   monthlyBudget?: number;
+  /** Last meal-kit price used, remembered for the next box. */
+  kitPrice?: number;
+  kitPriceUnit?: 'serving' | 'kit';
 }
 
 export interface MealKit {

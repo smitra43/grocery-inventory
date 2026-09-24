@@ -198,3 +198,5 @@ a.button { text-decoration: none; color: inherit; }
 .kit-meta label { display: flex; flex-direction: column; gap: 0.1rem; color: var(--muted); }
 .kit-meta input { min-height: 34px; padding: 0.25rem 0.4rem; font-size: 0.85rem; }
 a { color: var(--accent); }
+.kit-price { flex-wrap: wrap; }
+.kit-price input { width: 6.5rem; }
