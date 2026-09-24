@@ -19,9 +19,15 @@ npm run build && npm run server   # http://localhost:8787
 
 For development: `npm run server` in one terminal and `npm run dev` in another (Vite proxies `/api` to the server).
 
-### Android
+### Put it on your phone (Android / Chrome)
 
-Deploy the server somewhere with HTTPS (any Node host), open the URL in Chrome on your phone, and tap **⋮ → Install app**. It installs with its own icon, opens full-screen, and "Scan receipt" opens the camera. Installing needs HTTPS, so a plain `http://` address on your home network won't install.
+1. Sign up at <https://render.com> with your GitHub account (the free plan is enough).
+2. **New → Blueprint** → choose this repo. Render reads `render.yaml` and creates a web service.
+3. Fill in `ANTHROPIC_API_KEY` (from <https://console.anthropic.com>). The Kroger keys are optional. `APP_KEY` is generated for you; copy it from the service's **Environment** tab.
+4. When the deploy finishes, open the `https://larder-….onrender.com` URL in Chrome on your phone and tap **⋮ → Install app**.
+5. In the app, go to **Settings → Server access key** and paste the `APP_KEY`.
+
+On the free plan the server sleeps when idle, so the first receipt scan after a break takes about a minute. Your groceries are stored on the phone, not the server, so nothing is lost when it sleeps.
 
 ## Kroger setup
 

@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
-import { findLocations, type KrogerLocation } from '../api';
+import { findLocations, getAppKey, setAppKey, type KrogerLocation } from '../api';
 import { exportAll, getSettings, importAll, saveSettings } from '../db';
 import { DEFAULT_TARGETS } from '../lib/macros';
 import type { Macros } from '../lib/types';
@@ -12,6 +12,7 @@ export function Settings() {
   const [zip, setZip] = useState('');
   const [stores, setStores] = useState<KrogerLocation[]>([]);
   const [msg, setMsg] = useState('');
+  const [appKey, setKey] = useState(getAppKey);
 
   useEffect(() => {
     if (!settings) return;
@@ -60,6 +61,22 @@ export function Settings() {
     <section>
       <header className="section-head"><h2>Settings</h2></header>
       {msg && <p className="card">{msg}</p>}
+
+      <form
+        className="card form"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setAppKey(appKey);
+          setMsg('Access key saved on this device.');
+        }}
+      >
+        <h3 className="wide">Server access key</h3>
+        <label className="wide">
+          The APP_KEY you set on the server. Needed for receipt scanning and deals.
+          <input id="app-key" type="password" autoComplete="current-password" value={appKey} onChange={(e) => setKey(e.target.value)} />
+        </label>
+        <div className="form-actions wide"><button type="submit">Save key</button></div>
+      </form>
 
       <form className="card form" onSubmit={saveGoals}>
         <h3 className="wide">Daily macro targets</h3>

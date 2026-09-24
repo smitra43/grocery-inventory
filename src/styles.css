@@ -182,3 +182,5 @@ main { padding: 1rem 16px calc(80px + env(safe-area-inset-bottom)); max-width: 9
 .money::before { content: '$'; position: absolute; left: 0.45rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 0.85rem; }
 .money input { padding-left: 1.1rem !important; }
 .receipt-meta input, .receipt-meta select { min-height: 34px; padding: 0.25rem 0.4rem; font-size: 0.85rem; }
+
+.preview-banner { background: var(--surface); border: 1px dashed var(--accent); color: var(--muted); border-radius: 10px; padding: 0.5rem 0.75rem; font-size: 0.85rem; margin: 0 0 0.75rem; }

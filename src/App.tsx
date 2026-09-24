@@ -23,7 +23,11 @@ export default function App() {
   const [tab, setTab] = useState<Tab>(() => (location.hash.slice(1) as Tab) || 'home');
   const go = (t: string) => {
     setTab(t as Tab);
-    history.replaceState(null, '', `#${t}`);
+    try {
+      history.replaceState(null, '', `#${t}`);
+    } catch {
+      // Some embedded viewers block history changes; the tab still switches.
+    }
     window.scrollTo(0, 0);
   };
 
@@ -39,6 +43,11 @@ export default function App() {
         ))}
       </nav>
       <main>
+        {import.meta.env.VITE_PREVIEW && (
+          <p className="preview-banner">
+            Preview with sample groceries. Receipt scanning and Kroger deals need the hosted server.
+          </p>
+        )}
         {tab === 'home' && <Home go={go} />}
         {tab === 'inventory' && <Inventory />}
         {tab === 'recipes' && <Recipes />}

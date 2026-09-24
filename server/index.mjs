@@ -11,6 +11,7 @@
  *
  * In production it also serves the built app from ./dist.
  */
+import { timingSafeEqual } from 'node:crypto';
 import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
@@ -73,7 +74,19 @@ async function readBody(req, limit = 100_000) {
   return data ? JSON.parse(data) : {};
 }
 
+/** When APP_KEY is set, every API call except the status checks must send it as x-app-key. */
+function authorized(req) {
+  const key = process.env.APP_KEY;
+  if (!key) return true;
+  const given = Buffer.from(String(req.headers['x-app-key'] ?? ''));
+  const want = Buffer.from(key);
+  return given.length === want.length && timingSafeEqual(given, want);
+}
+
 async function handleApi(req, res, url) {
+  if (!url.pathname.endsWith('/status') && !authorized(req)) {
+    return send(res, 401, { error: 'Wrong or missing access key. Enter it in Settings.' });
+  }
   if (url.pathname === '/api/receipt/status') return send(res, 200, { configured: Boolean(process.env.ANTHROPIC_API_KEY) });
   if (url.pathname === '/api/receipt' && req.method === 'POST') {
     if (!process.env.ANTHROPIC_API_KEY) return send(res, 503, { error: 'Set ANTHROPIC_API_KEY in .env to scan receipts' });
