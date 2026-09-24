@@ -156,6 +156,18 @@ describe('parseRecipePage', () => {
     expect(r.facts).toHaveLength(9);
   });
 
+  it('uses the exact markup seen on homechef.com and estimates calories if they are not tagged', () => {
+    // Protein and carbs rows as pasted from the live page's inspector; fat in the same shape.
+    const html = `<title>Buttery Herb Chicken | Home Chef</title>
+      <div class="text float-left">Protein</div>
+      <strong class="textSm float-right" itemprop="proteinContent">42g</strong>
+      <strong class="textSm float-right" itemprop="carbohydrateContent">55g</strong>
+      <strong class="textSm float-right" itemprop="fatContent">34g</strong>`;
+    const r = parseRecipePage(html)!;
+    expect(r.macros).toEqual({ calories: 694, protein: 42, carbs: 55, fat: 34 });
+    expect(r.facts[0]).toEqual({ label: 'Calories (est.)', value: '694' });
+  });
+
   it('falls back to a visible nutrition panel and ignores saturated fat and added sugars', () => {
     const html = `<title>Herb Butter Chicken | Home Chef</title><div>Serves 2</div>
       <ul><li>Calories 554</li><li>Saturated Fat 14g</li><li>Fat 31g</li><li>Cholesterol 150mg</li>

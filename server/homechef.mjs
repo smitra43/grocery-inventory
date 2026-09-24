@@ -85,6 +85,16 @@ function readMicrodata(html) {
   return props;
 }
 
+/**
+ * If calories are missing but protein, carbs and fat were found, derive calories (4/4/9 kcal per g)
+ * and mark the panel row as estimated, rather than dropping the whole lookup.
+ */
+function withCalories(macros, facts) {
+  if (macros.calories !== null || [macros.protein, macros.carbs, macros.fat].some((v) => v === null)) return { macros, facts };
+  const calories = Math.round(macros.protein * 4 + macros.carbs * 4 + macros.fat * 9);
+  return { macros: { ...macros, calories }, facts: [{ label: 'Calories (est.)', value: String(calories) }, ...facts] };
+}
+
 /** Returns { title, servings, macros|null, ingredients[], facts[] } or null if the page isn't a recipe. */
 export function parseRecipePage(html) {
   // 1. schema.org JSON-LD
@@ -99,13 +109,15 @@ export function parseRecipePage(html) {
     const r = findRecipe(json);
     if (!r) continue;
     const n = r.nutrition ?? {};
-    const facts = PANEL.map(([label, key, unit]) => ({ label, value: formatValue(n[key], unit) })).filter((f) => f.value);
-    const macros = {
-      calories: firstNumber(n.calories),
-      protein: firstNumber(n.proteinContent),
-      carbs: firstNumber(n.carbohydrateContent),
-      fat: firstNumber(n.fatContent),
-    };
+    const { macros, facts } = withCalories(
+      {
+        calories: firstNumber(n.calories),
+        protein: firstNumber(n.proteinContent),
+        carbs: firstNumber(n.carbohydrateContent),
+        fat: firstNumber(n.fatContent),
+      },
+      PANEL.map(([label, key, unit]) => ({ label, value: formatValue(n[key], unit) })).filter((f) => f.value),
+    );
     return {
       title: decode(String(r.name ?? '')),
       servings: firstNumber(Array.isArray(r.recipeYield) ? r.recipeYield[0] : r.recipeYield) ?? 2,
@@ -120,19 +132,22 @@ export function parseRecipePage(html) {
   if (md.calories || md.proteinContent || md.carbohydrateContent) {
     const first = (k) => md[k]?.[0];
     const facts = PANEL.map(([label, key, unit]) => ({ label, value: formatValue(first(key), unit) })).filter((f) => f.value);
-    const macros = {
-      calories: firstNumber(first('calories')),
-      protein: firstNumber(first('proteinContent')),
-      carbs: firstNumber(first('carbohydrateContent')),
-      fat: firstNumber(first('fatContent')),
-    };
+    const { macros, facts: panel } = withCalories(
+      {
+        calories: firstNumber(first('calories')),
+        protein: firstNumber(first('proteinContent')),
+        carbs: firstNumber(first('carbohydrateContent')),
+        fat: firstNumber(first('fatContent')),
+      },
+      facts,
+    );
     const title = first('name') ?? /<title>([^<]*)<\/title>/i.exec(html)?.[1] ?? '';
     return {
       title: decode(title).replace(/\s*[|-]\s*Home Chef.*$/i, '').trim(),
       servings: firstNumber(first('recipeYield')) ?? 2,
       macros: Object.values(macros).every((v) => v !== null) ? macros : null,
       ingredients: md.recipeIngredient ?? md.ingredients ?? [],
-      facts,
+      facts: panel,
     };
   }
 
@@ -169,8 +184,10 @@ export function parseRecipePage(html) {
     return [label, f ? { ...f, text: formatValue(`${f.number}${f.unit ?? ''}`, unit) } : null];
   }));
   const num = (label) => (found[label] ? Math.round(found[label].number) : null);
-  const macros = { calories: num('Calories'), protein: num('Protein'), carbs: num('Carbohydrates'), fat: num('Fat') };
-  const facts = PANEL.filter(([label]) => found[label]).map(([label]) => ({ label, value: found[label].text }));
+  const { macros, facts } = withCalories(
+    { calories: num('Calories'), protein: num('Protein'), carbs: num('Carbohydrates'), fat: num('Fat') },
+    PANEL.filter(([label]) => found[label]).map(([label]) => ({ label, value: found[label].text })),
+  );
   const title = /<title>([^<]*)<\/title>/i.exec(html)?.[1];
   if (!title && Object.values(macros).every((v) => v === null)) return null;
   const serves = /(?:serves|servings?)\D{0,5}(\d{1,2})|(\d{1,2})\s*servings/i.exec(text);
