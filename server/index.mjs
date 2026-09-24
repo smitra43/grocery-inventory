@@ -7,7 +7,6 @@
  *   GET  /api/kroger/locations?zip=45202
  *   GET  /api/kroger/products?term=milk&locationId=01400943
  *   POST /api/kroger/deals   { locationId, terms: ["chicken", "broccoli"] }
- *   POST /api/receipt        { images: [{ mediaType, data (base64) }] }  (needs ANTHROPIC_API_KEY)
  *
  * In production it also serves the built app from ./dist.
  */
@@ -17,7 +16,6 @@ import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { bestDeal, normalizeProduct } from './deals.mjs';
-import { scanReceipt, validateImages } from './receipt.mjs';
 
 try {
   process.loadEnvFile?.();
@@ -87,15 +85,6 @@ async function handleApi(req, res, url) {
   if (!url.pathname.endsWith('/status') && !authorized(req)) {
     return send(res, 401, { error: 'Wrong or missing access key. Enter it in Settings.' });
   }
-  if (url.pathname === '/api/receipt/status') return send(res, 200, { configured: Boolean(process.env.ANTHROPIC_API_KEY) });
-  if (url.pathname === '/api/receipt' && req.method === 'POST') {
-    if (!process.env.ANTHROPIC_API_KEY) return send(res, 503, { error: 'Set ANTHROPIC_API_KEY in .env to scan receipts' });
-    const { images } = await readBody(req, 20_000_000);
-    const invalid = validateImages(images);
-    if (invalid) return send(res, 400, { error: invalid });
-    return send(res, 200, await scanReceipt(images));
-  }
-
   const configured = Boolean(KROGER_CLIENT_ID && KROGER_CLIENT_SECRET);
   if (url.pathname === '/api/kroger/status') return send(res, 200, { configured });
   if (!configured) return send(res, 503, { error: 'Set KROGER_CLIENT_ID and KROGER_CLIENT_SECRET in .env' });
@@ -152,6 +141,7 @@ const MIME = {
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
   '.webmanifest': 'application/manifest+json',
+  '.gz': 'application/gzip',
   '.json': 'application/json',
 };
 

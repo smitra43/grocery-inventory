@@ -69,38 +69,3 @@ export async function findDeals(locationId: string, terms: string[]): Promise<Re
   });
   return (await json<{ deals: Record<string, KrogerDeal | null> }>(res)).deals;
 }
-
-export interface ScannedItem {
-  name: string;
-  receiptText: string;
-  category: import('./lib/types').Category;
-  location: import('./lib/types').Location;
-  quantity: number;
-  unit: import('./lib/types').Unit;
-  price: number;
-  isFood: boolean;
-}
-
-export interface ScannedReceipt {
-  store: string;
-  date: string;
-  total: number;
-  items: ScannedItem[];
-}
-
-export async function receiptStatus(): Promise<boolean> {
-  try {
-    return (await json<{ configured: boolean }>(await api('/api/receipt/status'))).configured;
-  } catch {
-    return false;
-  }
-}
-
-export async function scanReceipt(images: Array<{ mediaType: string; data: string }>): Promise<ScannedReceipt> {
-  const res = await api('/api/receipt', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ images }),
-  });
-  return json(res);
-}

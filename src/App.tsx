@@ -45,7 +45,7 @@ export default function App() {
       <main>
         {import.meta.env.VITE_PREVIEW && (
           <p className="preview-banner">
-            Preview with sample groceries. Receipt scanning and Kroger deals need the hosted server.
+            Preview with sample groceries. Receipt scanning works here; Kroger deals need the hosted server.
           </p>
         )}
         {tab === 'home' && <Home go={go} />}

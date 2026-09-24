@@ -10,8 +10,6 @@ services:
     envVars:
       - key: APP_KEY
         generateValue: true
-      - key: ANTHROPIC_API_KEY
-        sync: false
       - key: KROGER_CLIENT_ID
         sync: false
       - key: KROGER_CLIENT_SECRET

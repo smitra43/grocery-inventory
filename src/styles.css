@@ -184,3 +184,7 @@ main { padding: 1rem 16px calc(80px + env(safe-area-inset-bottom)); max-width: 9
 .receipt-meta input, .receipt-meta select { min-height: 34px; padding: 0.25rem 0.4rem; font-size: 0.85rem; }
 
 .preview-banner { background: var(--surface); border: 1px dashed var(--accent); color: var(--muted); border-radius: 10px; padding: 0.5rem 0.75rem; font-size: 0.85rem; margin: 0 0 0.75rem; }
+.receipt-name { display: flex; gap: 0.4rem; align-items: center; }
+.receipt-name .chip { flex: none; }
+.reading { display: grid; gap: 0.4rem; }
+.raw-ocr { font: 0.75rem/1.4 ui-monospace, monospace; background: var(--bg); border-radius: 8px; padding: 0.6rem; overflow-x: auto; max-height: 300px; }

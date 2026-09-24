@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie';
 import { DEFAULT_TARGETS } from './lib/macros';
+import type { Alias } from './lib/receiptParser';
 import type { InventoryItem, MealLog, Settings } from './lib/types';
 
 /**
@@ -10,12 +11,18 @@ export const db = new Dexie('grocery-inventory') as Dexie & {
   items: EntityTable<InventoryItem, 'id'>;
   meals: EntityTable<MealLog, 'id'>;
   settings: EntityTable<Settings, 'id'>;
+  /** Receipt-line corrections the user has confirmed, so the next scan gets them right. */
+  aliases: EntityTable<Alias, 'key'>;
 };
 
 db.version(1).stores({
   items: '++id, status, expiresOn, purchasedOn, category, name',
   meals: '++id, date',
   settings: 'id',
+});
+
+db.version(2).stores({
+  aliases: 'key',
 });
 
 export async function getSettings(): Promise<Settings> {
@@ -32,6 +39,7 @@ export interface Backup {
   items: InventoryItem[];
   meals: MealLog[];
   settings: Settings | undefined;
+  aliases?: Alias[];
 }
 
 export async function exportAll(): Promise<Backup> {
@@ -41,6 +49,7 @@ export async function exportAll(): Promise<Backup> {
     items: await db.items.toArray(),
     meals: await db.meals.toArray(),
     settings: await db.settings.get('settings'),
+    aliases: await db.aliases.toArray(),
   };
 }
 
@@ -49,8 +58,9 @@ export async function importAll(backup: Backup): Promise<void> {
   if (backup.version !== 1 || !Array.isArray(backup.items) || !Array.isArray(backup.meals)) {
     throw new Error('Not a grocery-inventory backup file');
   }
-  await db.transaction('rw', db.items, db.meals, db.settings, async () => {
-    await Promise.all([db.items.clear(), db.meals.clear(), db.settings.clear()]);
+  await db.transaction('rw', [db.items, db.meals, db.settings, db.aliases], async () => {
+    await Promise.all([db.items.clear(), db.meals.clear(), db.settings.clear(), db.aliases.clear()]);
+    if (backup.aliases) await db.aliases.bulkPut(backup.aliases);
     await db.items.bulkAdd(backup.items);
     await db.meals.bulkAdd(backup.meals);
     if (backup.settings) await db.settings.put(backup.settings);
