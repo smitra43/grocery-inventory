@@ -303,3 +303,58 @@ export async function readReceipt(files: File[], progress: (fraction: number, la
   onProgress = null;
   return mergeOverlapping(pages);
 }
+
+/** Group pdf.js text items into lines, top to bottom, left to right. */
+function textItemsToLines(items: Array<{ str: string; transform: number[] }>): string[] {
+  const rows: Array<{ y: number; parts: Array<{ x: number; s: string }> }> = [];
+  for (const it of items) {
+    if (!it.str?.trim()) continue;
+    const x = it.transform[4];
+    const y = it.transform[5];
+    let row = rows.find((r) => Math.abs(r.y - y) <= 3);
+    if (!row) rows.push((row = { y, parts: [] }));
+    row.parts.push({ x, s: it.str });
+  }
+  return rows
+    .sort((a, b) => b.y - a.y)
+    .map((r) => r.parts.sort((a, b) => a.x - b.x).map((p) => p.s.trim()).join(' '));
+}
+
+/**
+ * Read a receipt PDF (e.g. from kroger.com → Purchases). Uses the PDF's own text when it
+ * has some; "Print to PDF" copies often draw letters as shapes instead, so those pages are
+ * rendered sharply and read with OCR, which is near-perfect on clean digital text.
+ */
+export async function readReceiptPdf(file: File, progress: (fraction: number, label: string) => void): Promise<string[]> {
+  progress(0, 'Opening PDF…');
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const workerUrl = (await import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url')).default;
+  pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const lines: string[] = [];
+  for (let n = 1; n <= doc.numPages; n++) {
+    const page = await doc.getPage(n);
+    const text = await page.getTextContent();
+    const withText = (text.items as Array<{ str?: string }>).filter((i) => i.str?.trim());
+    if (withText.length >= 5) {
+      lines.push(...textItemsToLines(text.items as Array<{ str: string; transform: number[] }>));
+      continue;
+    }
+    const label = `Reading page ${n} of ${doc.numPages}…`;
+    progress((n - 1) / doc.numPages, label);
+    const viewport = page.getViewport({ scale: 2.5 });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+    const worker = await getWorker();
+    onProgress = (p) => progress((n - 1 + p) / doc.numPages, label);
+    const { data } = await worker.recognize(canvas);
+    onProgress = null;
+    lines.push(...data.text.split('\n').filter((l) => l.trim()));
+  }
+  return lines;
+}

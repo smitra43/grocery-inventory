@@ -2,6 +2,7 @@
 
 A web app you install on your phone and desktop (a PWA) to:
 
+- **Kroger digital receipts**: upload the PDF from kroger.com → Purchases, or paste the receipt's text. Full product names, weights, quantities and prices come through exactly, and the total is checked against the receipt.
 - **Scan receipts**: photograph a receipt and the phone reads it into line items. No AI service and no account; the photo never leaves the device. You review everything before it's saved, and the app remembers your corrections.
 - **Track groceries**: what you bought, when, how much, what you paid, and when it expires. If you leave the expiry blank, it's estimated from the category and where you store it.
 - **Suggest recipes** ranked by how much soon-to-expire food they use up.

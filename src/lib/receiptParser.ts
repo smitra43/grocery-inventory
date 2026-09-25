@@ -1,3 +1,4 @@
+import { isDigitalReceipt, parseDigitalReceipt } from './digitalReceipt';
 import type { Category, Location, Unit } from './types';
 
 /**
@@ -30,6 +31,8 @@ export interface ParsedItem {
 export interface ParsedReceipt {
   date: string;
   total: number;
+  /** Sales tax, when the receipt states it (digital receipts do). */
+  tax?: number;
   items: ParsedItem[];
 }
 
@@ -100,13 +103,14 @@ export function expandName(receiptText: string): string {
 const RULES: Array<[RegExp, Category, boolean?]> = [
   [/towel|tissue|toilet|detergent|laundry|\bsoap|\bdish(es| soap)?\b|trash|\bfoil\b|plastic wrap|napkin|shampoo|cleaner|bleach|batter(y|ies)|diaper|\bbags?\b|sponge|pantiliner|liners?\b|charge\b/, 'other', false],
   [/broth|stock|soup|peanut butter|almond butter|coconut milk|\bsauce\b|salsa|\bcan(ned)?\b/, 'pantry'],
+  [/olives|pickle|crackers|pistachio|almonds|cashew/, 'pantry'],
   [/salmon|shrimp|tilapia|tuna|\bcod\b|fish|crab|scallop/, 'seafood'],
-  [/chicken|beef|turkey|pork|bacon|sausage|steak|\bham\b|lamb|chop|wings|drumstick|thigh/, 'meat'],
+  [/chicken|beef|turkey|pork|bacon|sausage|steak|\bham\b|lamb|chop|wings|drumstick|thigh|salami|prosciutto|antipasto|pepperoni/, 'meat'],
   [/\beggs?\b/, 'eggs'],
-  [/milk|cheese|cheddar|mozzarella|parmesan|yogurt|butter|cream|half and half/, 'dairy'],
+  [/milk|cheese|cheddar|mozzarella|parmesan|yogurt|butter|cream|half and half|feta|fontina|brie|gouda/, 'dairy'],
   [/bread|bagel|tortilla|\bbuns?\b|muffin|croissant|roll/, 'bakery'],
   [/frozen|ice cream/, 'frozen'],
-  [/juice|water|soda|coffee|\btea\b|sparkling|kombucha|beer|wine/, 'beverages'],
+  [/juice|water|soda|coffee|\btea\b|sparkling|kombucha|beer|wine|\bport\b|vodka|whiskey|bourbon|\brum\b|tequila|gin\b|radler/, 'beverages'],
   [/rice|pasta|spaghetti|beans|flour|sugar|cereal|oats|\boil\b|vinegar|honey|salt|spice|crackers|chips|granola|nuts|lentil/, 'pantry'],
   [/apple|banana|berr|grape|avocado|tomato|potato|onion|pepper|broccoli|carrot|celery|cucumber|lettuce|romaine|spinach|mushroom|garlic|lemon|lime|orange|kale|squash|zucchini|cabbage|pear|peach|melon|herb|cilantro|basil|asparagus|corn|peas|greens|radish|daikon|beet|salad/, 'produce'],
 ];
@@ -201,6 +205,8 @@ function letters(s: string): number {
 }
 
 export function parseReceipt(lines: string[], aliases: Map<string, Alias> = new Map()): ParsedReceipt {
+  // Kroger's digital receipts (website/PDF) have their own, much cleaner layout.
+  if (isDigitalReceipt(lines)) return parseDigitalReceipt(lines, aliases);
   const items: ParsedItem[] = [];
   let date = '';
   let total = 0;

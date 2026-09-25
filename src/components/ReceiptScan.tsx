@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { db } from '../db';
 import { todayISO } from '../lib/dates';
 import { estimateExpiry } from '../lib/expiry';
-import { readReceipt } from '../lib/ocr';
+import { readReceipt, readReceiptPdf } from '../lib/ocr';
 import { normalizeKey, parseReceipt, type Alias, type ParsedItem } from '../lib/receiptParser';
 import type { Category, Location, Unit } from '../lib/types';
 import { CATEGORIES } from './Inventory';
@@ -27,7 +27,8 @@ const blankRow = (): Row => ({
 
 export function ReceiptScan({ onDone }: { onDone: () => void }) {
   const input = useRef<HTMLInputElement>(null);
-  const [status, setStatus] = useState<'idle' | 'reading' | 'review'>('idle');
+  const [status, setStatus] = useState<'idle' | 'reading' | 'review' | 'paste'>('idle');
+  const [pasted, setPasted] = useState('');
   const [progress, setProgress] = useState({ fraction: 0, label: '' });
   const [error, setError] = useState('');
   const [rows, setRows] = useState<Row[]>([]);
@@ -35,28 +36,49 @@ export function ReceiptScan({ onDone }: { onDone: () => void }) {
   const [showRaw, setShowRaw] = useState(false);
   const [date, setDate] = useState(todayISO());
   const [total, setTotal] = useState(0);
+  const [tax, setTax] = useState<number | undefined>(undefined);
+
+  /** Parse receipt lines (from OCR, a PDF or pasted text) and open the review list. */
+  async function review(lines: string[]) {
+    const aliases = new Map((await db.aliases.toArray()).map((a) => [a.key, a]));
+    const parsed = parseReceipt(lines, aliases);
+    setRawLines(lines);
+    if (parsed.items.length === 0) {
+      throw new Error('No items found. Retake the photo flat, in good light, filling the frame with the receipt.');
+    }
+    setRows(parsed.items.map((i) => ({ ...i, include: i.isFood })));
+    if (parsed.date) setDate(parsed.date);
+    setTotal(parsed.total);
+    setTax(parsed.tax);
+    setStatus('review');
+  }
 
   async function onFiles(files: FileList | null) {
     if (!files?.length) return;
     setError('');
     setStatus('reading');
     try {
-      const lines = await readReceipt([...files], (fraction, label) => setProgress({ fraction, label }));
-      const aliases = new Map((await db.aliases.toArray()).map((a) => [a.key, a]));
-      const parsed = parseReceipt(lines, aliases);
-      setRawLines(lines);
-      if (parsed.items.length === 0) {
-        throw new Error('No items found. Retake the photo flat, in good light, filling the frame with the receipt.');
-      }
-      setRows(parsed.items.map((i) => ({ ...i, include: i.isFood })));
-      if (parsed.date) setDate(parsed.date);
-      setTotal(parsed.total);
-      setStatus('review');
+      const all = [...files];
+      const pdfs = all.filter((f) => f.type === 'application/pdf' || /\.pdf$/i.test(f.name));
+      const photos = all.filter((f) => !pdfs.includes(f));
+      const lines: string[] = [];
+      for (const pdf of pdfs) lines.push(...(await readReceiptPdf(pdf, (fraction, label) => setProgress({ fraction, label }))));
+      if (photos.length) lines.push(...(await readReceipt(photos, (fraction, label) => setProgress({ fraction, label }))));
+      await review(lines);
     } catch (e) {
       setError((e as Error).message);
       setStatus(rawLines.length ? 'review' : 'idle');
     } finally {
       if (input.current) input.current.value = '';
+    }
+  }
+
+  async function onPaste() {
+    setError('');
+    try {
+      await review(pasted.split(/\r?\n/));
+    } catch (e) {
+      setError((e as Error).message.replace('Retake the photo flat, in good light, filling the frame with the receipt.', 'Paste the whole receipt, including the item list.'));
     }
   }
 
@@ -96,18 +118,35 @@ export function ReceiptScan({ onDone }: { onDone: () => void }) {
 
   return (
     <div className="card">
-      <input ref={input} type="file" accept="image/*" capture="environment" multiple hidden onChange={(e) => onFiles(e.target.files)} />
+      <input ref={input} type="file" accept="image/*,application/pdf" multiple hidden onChange={(e) => onFiles(e.target.files)} />
       {status === 'idle' && (
         <>
           <p className="small">
-            Lay the receipt flat in good light and fill the frame with it. For a long receipt, take several photos top to
-            bottom that overlap by a line or two. Reading happens on your phone; the photo isn't uploaded.
+            <strong>Best:</strong> a receipt from kroger.com → Purchases, as a PDF, or paste its text. Names and prices come
+            through exactly.
+          </p>
+          <p className="small muted">
+            Paper receipt: lay it flat in good light and fill the frame. For a long one, take several overlapping photos top to
+            bottom. Reading happens on your phone; nothing is uploaded.
           </p>
           <div className="form-actions">
-            <button className="primary" onClick={() => input.current?.click()}>Take or choose photos</button>
+            <button className="primary" onClick={() => input.current?.click()}>Photo or PDF</button>
+            <button onClick={() => setStatus('paste')}>Paste receipt text</button>
             <button onClick={onDone}>Cancel</button>
           </div>
         </>
+      )}
+      {status === 'paste' && (
+        <div className="form">
+          <label className="wide">
+            Open the receipt on kroger.com → Purchases, select all (Ctrl+A), copy, and paste here
+            <textarea id="receipt-text" rows={8} value={pasted} onChange={(e) => setPasted(e.target.value)} />
+          </label>
+          <div className="form-actions wide">
+            <button className="primary" onClick={onPaste} disabled={!pasted.trim()}>Read text</button>
+            <button onClick={() => setStatus('idle')}>Back</button>
+          </div>
+        </div>
       )}
       {status === 'reading' && (
         <div className="reading" role="status">
@@ -164,7 +203,10 @@ export function ReceiptScan({ onDone }: { onDone: () => void }) {
           <button className="link" onClick={() => setRows([...rows, blankRow()])}>+ Add a line the scanner missed</button>
           <p className="small">
             {included.length} items · ${sum.toFixed(2)}
-            {total > 0 && Math.abs(total - allSum) > 0.5 && (
+            {total > 0 && tax !== undefined && Math.abs(allSum + tax - total) < 0.02 && (
+              <span className="ok"> · matches the receipt: ${allSum.toFixed(2)} + ${tax.toFixed(2)} tax = ${total.toFixed(2)}</span>
+            )}
+            {total > 0 && !(tax !== undefined && Math.abs(allSum + tax - total) < 0.02) && Math.abs(total - allSum) > 0.5 && (
               <span className="warn"> · receipt total ${total.toFixed(2)}. The gap is tax, or a line that was missed or misread.</span>
             )}
           </p>
