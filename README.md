@@ -2,7 +2,7 @@
 
 A web app you install on your phone and desktop (a PWA) to:
 
-- **Kroger digital receipts**: a one-tap bookmark (Settings → Import receipts from kroger.com) sends the receipt you have open on kroger.com → Purchases straight into the app. It runs in your own logged-in browser, so no Kroger password is stored. You can also upload the receipt PDF or paste its text. Full product names, weights, quantities and prices come through exactly, and the total is checked against the receipt.
+- **Import all Kroger purchases**: Settings → Import purchases from kroger.com gives a snippet (paste in the Console on kroger.com/mypurchases) or a bookmark. It calls the same endpoint Kroger's Purchases page uses (`/atlas/v1/purchase-history/v2/details`) from your own logged-in tab, so no Kroger password is stored, and brings every listed receipt in with names, quantities, prices after coupons and tax. Fuel is skipped, repeats are skipped, and receipts older than 2 weeks count toward spending only. You can also upload a receipt PDF or paste its text. Full product names, weights, quantities and prices come through exactly, and the total is checked against the receipt.
 - **Scan receipts**: photograph a receipt and the phone reads it into line items. No AI service and no account; the photo never leaves the device. You review everything before it's saved, and the app remembers your corrections.
 - **Track groceries**: what you bought, when, how much, what you paid, and when it expires. If you leave the expiry blank, it's estimated from the category and where you store it.
 - **Suggest recipes** ranked by how much soon-to-expire food they use up.

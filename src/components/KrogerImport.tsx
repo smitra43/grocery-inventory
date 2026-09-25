@@ -64,7 +64,7 @@ export function KrogerImport({ payload, onDone }: { payload: KrogerImportPayload
               <div className="item-main">
                 <strong>{fmtDate(r.date)} · ${r.total.toFixed(2)}</strong>
                 <span className="muted">
-                  {r.store || 'Kroger'} · {r.items.length} items
+                  {r.store || 'Kroger'} · {r.items.length} {r.items.length === 1 ? 'item' : 'items'}
                   {r.savings > 0 && ` · saved $${r.savings.toFixed(2)}`}
                   {!matches && ' · items don’t add up to the total'}
                 </span>
