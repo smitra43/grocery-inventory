@@ -14,6 +14,8 @@ export const db = new Dexie('grocery-inventory') as Dexie & {
   /** Receipt-line corrections the user has confirmed, so the next scan gets them right. */
   aliases: EntityTable<Alias, 'key'>;
   kits: EntityTable<MealKit, 'id'>;
+  /** Kroger receipts already imported, so running the importer again skips them. */
+  imports: EntityTable<{ key: string; date: string; total: number }, 'key'>;
 };
 
 db.version(1).stores({
@@ -28,6 +30,10 @@ db.version(2).stores({
 
 db.version(3).stores({
   kits: '++id, status, cookBy, deliveredOn',
+});
+
+db.version(4).stores({
+  imports: 'key',
 });
 
 export async function getSettings(): Promise<Settings> {
@@ -46,6 +52,7 @@ export interface Backup {
   settings: Settings | undefined;
   aliases?: Alias[];
   kits?: MealKit[];
+  imports?: Array<{ key: string; date: string; total: number }>;
 }
 
 export async function exportAll(): Promise<Backup> {
@@ -57,6 +64,7 @@ export async function exportAll(): Promise<Backup> {
     settings: await db.settings.get('settings'),
     aliases: await db.aliases.toArray(),
     kits: await db.kits.toArray(),
+    imports: await db.imports.toArray(),
   };
 }
 
@@ -65,8 +73,9 @@ export async function importAll(backup: Backup): Promise<void> {
   if (backup.version !== 1 || !Array.isArray(backup.items) || !Array.isArray(backup.meals)) {
     throw new Error('Not a grocery-inventory backup file');
   }
-  await db.transaction('rw', [db.items, db.meals, db.settings, db.aliases, db.kits], async () => {
-    await Promise.all([db.items.clear(), db.meals.clear(), db.settings.clear(), db.aliases.clear(), db.kits.clear()]);
+  await db.transaction('rw', [db.items, db.meals, db.settings, db.aliases, db.kits, db.imports], async () => {
+    await Promise.all([db.items.clear(), db.meals.clear(), db.settings.clear(), db.aliases.clear(), db.kits.clear(), db.imports.clear()]);
+    if (backup.imports) await db.imports.bulkPut(backup.imports);
     if (backup.aliases) await db.aliases.bulkPut(backup.aliases);
     if (backup.kits) await db.kits.bulkAdd(backup.kits);
     await db.items.bulkAdd(backup.items);

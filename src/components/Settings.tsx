@@ -1,6 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { bookmarkletUrl } from '../lib/krogerBookmarklet';
+import { krogerConsoleSnippet, krogerImportBookmarklet } from '../lib/krogerImport';
 import { findLocations, getAppKey, setAppKey, type KrogerLocation } from '../api';
 import { exportAll, getSettings, importAll, saveSettings } from '../db';
 import { DEFAULT_TARGETS } from '../lib/macros';
@@ -129,41 +129,56 @@ export function Settings() {
 
 function KrogerBookmarklet() {
   const link = useRef<HTMLAnchorElement>(null);
-  const code = bookmarkletUrl(location.origin + location.pathname);
-  const [copied, setCopied] = useState(false);
-  // React blocks javascript: URLs in JSX, so set the bookmarklet link directly.
+  const appUrl = location.origin + location.pathname;
+  const snippet = krogerConsoleSnippet(appUrl);
+  const bookmark = krogerImportBookmarklet(appUrl);
+  const [copied, setCopied] = useState('');
+  // React blocks javascript: URLs in JSX, so set the bookmark link directly.
   useEffect(() => {
-    link.current?.setAttribute('href', code);
-  }, [code]);
+    link.current?.setAttribute('href', bookmark);
+  }, [bookmark]);
 
-  async function copy() {
+  async function copy(text: string, what: string, fieldId: string) {
     try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
     } catch {
-      (document.getElementById('bookmarklet-code') as HTMLTextAreaElement | null)?.select();
+      (document.getElementById(fieldId) as HTMLTextAreaElement | null)?.select();
     }
   }
 
   return (
     <div className="card">
-      <h3>Import receipts from kroger.com</h3>
+      <h3>Import purchases from kroger.com</h3>
       <p className="small">
-        Add this bookmark once. Then open a receipt on kroger.com → Purchases and tap it: the receipt opens here, ready to
-        review. It reads only the page you have open; your Kroger login stays with Kroger.
+        Brings in every receipt listed on your kroger.com Purchases page: names, quantities, prices after coupons, and tax.
+        It runs in your own logged-in Kroger tab, so your Kroger password never touches this app. Fuel is skipped, and
+        receipts you already imported are skipped.
       </p>
+      <p className="small"><strong>On a computer (Chrome):</strong></p>
+      <ol className="small steps">
+        <li>Open <a href="https://www.kroger.com/mypurchases" target="_blank" rel="noreferrer">kroger.com/mypurchases</a> and log in.</li>
+        <li>Press F12 and open the <em>Console</em> tab.</li>
+        <li>
+          <button onClick={() => copy(snippet, 'snippet', 'kroger-snippet')}>{copied === 'snippet' ? 'Copied' : 'Copy import code'}</button>, paste it in the console and press Enter. (If Chrome asks, type <code>allow pasting</code> first.)
+        </li>
+        <li>This app opens with your receipts to review.</li>
+      </ol>
+      <textarea id="kroger-snippet" readOnly rows={2} value={snippet} className="raw-ocr" />
       <p className="small">
-        <strong>Computer:</strong> drag this to your bookmarks bar:{' '}
-        <a ref={link} className="button" onClick={(e) => e.preventDefault()}>Send receipt to Larder</a>
+        <strong>One-tap version:</strong> drag this to your bookmarks bar, then click it on the Purchases page:{' '}
+        <a ref={link} className="button" onClick={(e) => e.preventDefault()}>Import to Larder</a>
       </p>
-      <p className="small">
-        <strong>Android Chrome:</strong> copy the code, bookmark any page, edit that bookmark, paste the code as its URL and
-        name it <em>Larder</em>. On the receipt page, type <em>Larder</em> in the address bar and tap the bookmark.
-      </p>
-      <textarea id="bookmarklet-code" readOnly rows={3} value={code} className="raw-ocr" />
-      <div className="form-actions">
-        <button onClick={copy}>{copied ? 'Copied' : 'Copy code'}</button>
-      </div>
+      <details className="small">
+        <summary>On Android Chrome</summary>
+        <p>
+          Copy the bookmark code below, bookmark any page, edit that bookmark, paste the code as its URL and name it{' '}
+          <em>Larder</em>. On kroger.com/mypurchases, type <em>Larder</em> in the address bar and tap the bookmark.
+        </p>
+        <textarea id="kroger-bookmark" readOnly rows={2} value={bookmark} className="raw-ocr" />
+        <button onClick={() => copy(bookmark, 'bookmark', 'kroger-bookmark')}>{copied === 'bookmark' ? 'Copied' : 'Copy bookmark code'}</button>
+      </details>
+      <p className="muted small">Only receipts shown on the page are imported; scroll or page further on kroger.com to include older ones.</p>
     </div>
   );
 }

@@ -101,7 +101,7 @@ export function expandName(receiptText: string): string {
 // --- Category / storage ---------------------------------------------------
 
 const RULES: Array<[RegExp, Category, boolean?]> = [
-  [/towel|tissue|toilet|detergent|laundry|\bsoap|\bdish(es| soap)?\b|trash|\bfoil\b|plastic wrap|napkin|shampoo|cleaner|bleach|batter(y|ies)|diaper|\bbags?\b|sponge|pantiliner|liners?\b|charge\b/, 'other', false],
+  [/towel|tissue|toilet|detergent|laundry|\bsoap|\bdish(es| soap)?\b|trash|\bfoil\b|plastic wrap|napkin|shampoo|cleaner|bleach|batter(y|ies)|diaper|\bbags?\b|sponge|pantiliner|liners?\b|charge\b|straws?\b|\bcups\b|plates\b|utensils|toothpaste|deodorant|vitamin/, 'other', false],
   [/broth|stock|soup|peanut butter|almond butter|coconut milk|\bsauce\b|salsa|\bcan(ned)?\b/, 'pantry'],
   [/olives|pickle|crackers|pistachio|almonds|cashew/, 'pantry'],
   [/salmon|shrimp|tilapia|tuna|\bcod\b|fish|crab|scallop/, 'seafood'],
@@ -110,7 +110,7 @@ const RULES: Array<[RegExp, Category, boolean?]> = [
   [/milk|cheese|cheddar|mozzarella|parmesan|yogurt|butter|cream|half and half|feta|fontina|brie|gouda/, 'dairy'],
   [/bread|bagel|tortilla|\bbuns?\b|muffin|croissant|roll/, 'bakery'],
   [/frozen|ice cream/, 'frozen'],
-  [/juice|water|soda|coffee|\btea\b|sparkling|kombucha|beer|wine|\bport\b|vodka|whiskey|bourbon|\brum\b|tequila|gin\b|radler/, 'beverages'],
+  [/juice|water|soda|coffee|\btea\b|chai|earl grey|sparkling|kombucha|beer|wine|\bport\b|vodka|whiskey|bourbon|\brum\b|tequila|gin\b|radler/, 'beverages'],
   [/rice|pasta|spaghetti|beans|flour|sugar|cereal|oats|\boil\b|vinegar|honey|salt|spice|crackers|chips|granola|nuts|lentil/, 'pantry'],
   [/apple|banana|berr|grape|avocado|tomato|potato|onion|pepper|broccoli|carrot|celery|cucumber|lettuce|romaine|spinach|mushroom|garlic|lemon|lime|orange|kale|squash|zucchini|cabbage|pear|peach|melon|herb|cilantro|basil|asparagus|corn|peas|greens|radish|daikon|beet|salad/, 'produce'],
 ];

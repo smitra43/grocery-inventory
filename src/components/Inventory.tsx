@@ -5,6 +5,8 @@ import { todayISO } from '../lib/dates';
 import { daysLeft, estimateExpiry, freshness } from '../lib/expiry';
 import type { Category, InventoryItem, Location, Unit } from '../lib/types';
 import { ReceiptScan } from './ReceiptScan';
+import { KrogerImport } from './KrogerImport';
+import { parseImportPayload } from '../lib/krogerImport';
 
 export const CATEGORIES: Category[] = ['produce', 'meat', 'seafood', 'dairy', 'eggs', 'bakery', 'pantry', 'frozen', 'beverages', 'other'];
 const LOCATIONS: Location[] = ['fridge', 'freezer', 'pantry'];
@@ -150,8 +152,10 @@ function AddItemForm({ onDone }: { onDone: () => void }) {
 export function Inventory({ importedReceipt }: { importedReceipt?: string | null }) {
   const today = todayISO();
   const [adding, setAdding] = useState(false);
-  const [pendingImport, setPendingImport] = useState(importedReceipt ?? null);
-  const [scanning, setScanning] = useState(Boolean(importedReceipt));
+  const payload = importedReceipt ? parseImportPayload(importedReceipt) : null;
+  const [krogerPayload, setKrogerPayload] = useState(payload);
+  const [pendingImport, setPendingImport] = useState(payload ? null : importedReceipt ?? null);
+  const [scanning, setScanning] = useState(Boolean(importedReceipt) && !payload);
   const [filter, setFilter] = useState<'all' | Location>('all');
   const [showClosed, setShowClosed] = useState(false);
   const items = useLiveQuery(() => db.items.orderBy('expiresOn').toArray(), []) ?? [];
@@ -170,6 +174,7 @@ export function Inventory({ importedReceipt }: { importedReceipt?: string | null
           </div>
         )}
       </header>
+      {krogerPayload && <KrogerImport payload={krogerPayload} onDone={() => setKrogerPayload(null)} />}
       {scanning && (
         <ReceiptScan
           initialText={pendingImport}

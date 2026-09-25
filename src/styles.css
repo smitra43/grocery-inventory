@@ -207,3 +207,8 @@ a { color: var(--accent); }
 .facts .sub dt { font-weight: 400; padding-left: 1rem; }
 .facts .facts-head { font-size: 0.75rem; color: var(--muted); border-bottom: 1px solid var(--text); }
 .facts .facts-head dt { font-weight: 400; }
+.kroger-receipt > input[type='checkbox'] { width: 22px; height: 22px; min-height: 0; flex: none; }
+.kroger-items { list-style: none; padding: 0.3rem 0 0; margin: 0; width: 100%; display: grid; gap: 0.2rem; font-size: 0.85rem; }
+.kroger-items li { display: flex; justify-content: space-between; gap: 0.5rem; border-top: 1px dashed var(--border); padding-top: 0.2rem; }
+.steps { padding-left: 1.2rem; display: grid; gap: 0.35rem; margin: 0.3rem 0 0.6rem; }
+details summary { cursor: pointer; color: var(--accent); margin: 0.4rem 0; }
