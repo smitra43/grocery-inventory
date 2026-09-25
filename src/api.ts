@@ -72,6 +72,8 @@ export async function findDeals(locationId: string, terms: string[]): Promise<Re
 
 export interface MealLookup {
   found: boolean;
+  /** Why it wasn't found: auth | offline | not_found | blocked | no_nutrition | network | http_<status> */
+  reason?: string;
   url?: string;
   title?: string;
   servings?: number;
@@ -82,9 +84,18 @@ export interface MealLookup {
 
 /** Recipe details from homechef.com, via our server. Returns { found: false } when offline or not found. */
 export async function lookupHomeChefMeal(name: string): Promise<MealLookup> {
+  let res: Response;
   try {
-    return await json<MealLookup>(await api(`/api/homechef/meal?name=${encodeURIComponent(name)}`));
+    res = await api(`/api/homechef/meal?name=${encodeURIComponent(name)}`);
   } catch {
-    return { found: false };
+    return { found: false, reason: 'offline' };
+  }
+  if (res.status === 401) return { found: false, reason: 'auth' };
+  if (res.status === 404 || !res.ok) return { found: false, reason: 'offline' };
+  try {
+    return (await res.json()) as MealLookup;
+  } catch {
+    // The preview has no server: the "API" answers with the app page instead of JSON.
+    return { found: false, reason: 'offline' };
   }
 }

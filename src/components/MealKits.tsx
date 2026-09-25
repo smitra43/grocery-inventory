@@ -16,7 +16,26 @@ type Draft = {
   url: string;
   facts?: NutritionFact[];
   lookup: 'pending' | 'found' | 'missing';
+  reason?: string;
 };
+
+/** What to tell the user when nutrition couldn't be looked up. */
+function lookupProblem(reason?: string): string {
+  switch (reason) {
+    case 'auth':
+      return 'The server needs your access key. Paste APP_KEY in Settings → Server access key, then Read email again.';
+    case 'offline':
+      return "Nutrition lookup needs the hosted server, and it isn't reachable from here.";
+    case 'blocked':
+      return 'homechef.com refused the lookup (it looks like a bot check).';
+    case 'not_found':
+      return "Couldn't find this meal's page on homechef.com under its name.";
+    case 'no_nutrition':
+      return 'Found the page, but no nutrition could be read from it.';
+    default:
+      return reason ? `Lookup failed (${reason}).` : 'Lookup failed.';
+  }
+}
 
 const MACRO_KEYS: Array<[keyof Macros, string]> = [
   ['calories', 'kcal'],
@@ -75,8 +94,24 @@ function ImportBox({ onDone }: { onDone: () => void }) {
     setDrafts((cur) =>
       (cur ?? initial).map((d, i) => {
         const r = results[i];
-        if (!r.found || !r.macros) return { ...d, lookup: 'missing', url: r.url ?? d.url };
+        if (!r.found || !r.macros) return { ...d, lookup: 'missing', reason: r.reason, url: r.url ?? d.url };
         return { ...d, lookup: 'found', macros: r.macros, facts: r.facts, servings: r.servings ?? d.servings, url: r.url ?? d.url };
+      }),
+    );
+  }
+
+  async function retryLookups() {
+    if (!drafts) return;
+    const targets = drafts.map((d, i) => [d, i] as const).filter(([d]) => d.lookup === 'missing');
+    setDrafts(drafts.map((d) => (d.lookup === 'missing' ? { ...d, lookup: 'pending' } : d)));
+    const results = await Promise.all(targets.map(([d]) => lookupHomeChefMeal(d.name)));
+    setDrafts((cur) =>
+      cur!.map((d, i) => {
+        const k = targets.findIndex(([, j]) => j === i);
+        if (k < 0) return d;
+        const r = results[k];
+        if (!r.found || !r.macros) return { ...d, lookup: 'missing', reason: r.reason };
+        return { ...d, lookup: 'found', reason: undefined, macros: r.macros, facts: r.facts, servings: r.servings ?? d.servings, url: r.url ?? d.url };
       }),
     );
   }
@@ -149,6 +184,9 @@ function ImportBox({ onDone }: { onDone: () => void }) {
           <p className="muted small">
             Cook-by dates are estimates: seafood 2 days, meat 4, vegetarian 5. Use the date on the recipe card if it differs.
           </p>
+          {drafts.some((d) => d.lookup === 'missing') && (
+            <button className="link" onClick={retryLookups}>Try the nutrition lookup again</button>
+          )}
           <ul className="list receipt-rows">
             {drafts.map((d, i) => (
               <li key={i} className={`receipt-row${d.include ? '' : ' faded'}`}>
@@ -161,7 +199,10 @@ function ImportBox({ onDone }: { onDone: () => void }) {
                       <>Nutrition from <a href={d.url} target="_blank" rel="noreferrer">homechef.com</a></>
                     )}
                     {d.lookup === 'missing' && (
-                      <>Enter per-serving nutrition from the recipe card or <a href={d.url} target="_blank" rel="noreferrer">its page</a> (optional)</>
+                      <>
+                        <span className="warn">{lookupProblem(d.reason)}</span> Enter nutrition from the recipe card or{' '}
+                        <a href={d.url} target="_blank" rel="noreferrer">its page</a> (optional).
+                      </>
                     )}
                   </span>
                   <div className="kit-meta">

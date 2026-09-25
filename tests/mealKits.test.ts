@@ -228,3 +228,35 @@ describe('kitPrices', () => {
     expect(kitPrices(9.99, 'serving', [2, 4])).toEqual([19.98, 39.96]);
   });
 });
+
+describe('lookupMeal failure reasons', () => {
+  const page = `<strong itemprop="calories">820</strong><strong itemprop="proteinContent">42g</strong>
+    <strong itemprop="carbohydrateContent">55g</strong><strong itemprop="fatContent">48g</strong>`;
+  async function lookupWith(responder: (url: string) => Response) {
+    const { vi } = await import('vitest');
+    vi.resetModules();
+    vi.stubGlobal('fetch', async (url: string) => responder(url));
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+    const { lookupMeal } = await import('../server/homechef.mjs');
+    const r = await lookupMeal('Buttery Herb Chicken');
+    vi.unstubAllGlobals();
+    return r as { found: boolean; reason?: string; macros?: unknown; url?: string };
+  }
+
+  it('finds nutrition on a normal page', async () => {
+    const r = await lookupWith(() => new Response(page));
+    expect(r).toMatchObject({ found: true, macros: { calories: 820, protein: 42, carbs: 55, fat: 48 } });
+  });
+
+  it('tries the -standard page before giving up', async () => {
+    const r = await lookupWith((u) => new Response(u.endsWith('-standard') ? page : 'nope', { status: u.endsWith('-standard') ? 200 : 404 }));
+    expect(r).toMatchObject({ found: true, url: 'https://www.homechef.com/meals/buttery-herb-chicken-standard' });
+  });
+
+  it('says why it failed', async () => {
+    expect((await lookupWith(() => new Response('nope', { status: 404 }))).reason).toBe('not_found');
+    expect((await lookupWith(() => new Response('denied', { status: 403 }))).reason).toBe('blocked');
+    expect((await lookupWith(() => new Response('<title>Just a moment...</title>'))).reason).toBe('blocked');
+    expect((await lookupWith(() => new Response('<title>Buttery Herb Chicken</title>'))).reason).toBe('no_nutrition');
+  });
+});

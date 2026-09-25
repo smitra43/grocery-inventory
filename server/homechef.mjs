@@ -202,22 +202,55 @@ export function parseRecipePage(html) {
 
 const cache = new Map();
 
-/** Try the name's slug, then the "-standard" variant Home Chef uses for some meals. */
+// Ask like a normal browser; some sites turn away requests that don't look like one.
+const HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36',
+  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+  'Accept-Language': 'en-US,en;q=0.9',
+};
+
+/**
+ * Try the name's slug, then the "-standard" variant Home Chef uses for some meals.
+ * Always says why a lookup failed, so the app can tell "blocked" from "not found".
+ * reason: 'not_found' | 'blocked' | 'no_nutrition' | 'network' | 'http_<status>'
+ */
 export async function lookupMeal(name) {
   const slug = slugify(name);
-  if (!slug) return { found: false };
+  if (!slug) return { found: false, reason: 'not_found' };
   if (cache.has(slug)) return cache.get(slug);
-  let result = { found: false, url: `https://www.homechef.com/meals/${slug}` };
+  let result = { found: false, url: `https://www.homechef.com/meals/${slug}`, reason: 'not_found' };
   for (const s of [slug, `${slug}-standard`]) {
     const url = `https://www.homechef.com/meals/${s}`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (personal grocery app)', Accept: 'text/html' } });
-    if (!res.ok) continue;
-    const parsed = parseRecipePage(await res.text());
-    if (parsed) {
+    let res, html;
+    try {
+      res = await fetch(url, { headers: HEADERS, redirect: 'follow' });
+      html = await res.text();
+    } catch (e) {
+      result = { ...result, reason: 'network', detail: String(e.message ?? e) };
+      console.log(`homechef ${s}: network error ${e.message ?? e}`);
+      continue;
+    }
+    const challenged = /just a moment|cf-chl|captcha|access denied|attention required/i.test(html.slice(0, 5000));
+    console.log(`homechef ${s}: HTTP ${res.status}${challenged ? ' (bot check page)' : ''}, ${html.length} bytes`);
+    if (res.status === 404) continue;
+    if ([401, 403, 429, 503].includes(res.status) || challenged) {
+      result = { ...result, url, reason: 'blocked', status: res.status };
+      break;
+    }
+    if (!res.ok) {
+      result = { ...result, url, reason: `http_${res.status}`, status: res.status };
+      continue;
+    }
+    const parsed = parseRecipePage(html);
+    if (parsed?.macros) {
       result = { found: true, url, ...parsed };
       break;
     }
+    result = { ...result, url, reason: 'no_nutrition', ...(parsed ?? {}) };
+    break;
   }
-  cache.set(slug, result);
+  // Only remember successes, so a temporary block doesn't stick until the server restarts.
+  if (result.found) cache.set(slug, result);
   return result;
 }
