@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { bookmarkletUrl } from '../lib/krogerBookmarklet';
 import { findLocations, getAppKey, setAppKey, type KrogerLocation } from '../api';
 import { exportAll, getSettings, importAll, saveSettings } from '../db';
 import { DEFAULT_TARGETS } from '../lib/macros';
@@ -112,6 +113,8 @@ export function Settings() {
         )}
       </div>
 
+      {!import.meta.env.VITE_PREVIEW && <KrogerBookmarklet />}
+
       <div className="card">
         <h3>Backup &amp; move devices</h3>
         <p className="muted small">Data is stored on this device. Export here, then import on your phone or computer.</p>
@@ -121,5 +124,46 @@ export function Settings() {
         </div>
       </div>
     </section>
+  );
+}
+
+function KrogerBookmarklet() {
+  const link = useRef<HTMLAnchorElement>(null);
+  const code = bookmarkletUrl(location.origin + location.pathname);
+  const [copied, setCopied] = useState(false);
+  // React blocks javascript: URLs in JSX, so set the bookmarklet link directly.
+  useEffect(() => {
+    link.current?.setAttribute('href', code);
+  }, [code]);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+    } catch {
+      (document.getElementById('bookmarklet-code') as HTMLTextAreaElement | null)?.select();
+    }
+  }
+
+  return (
+    <div className="card">
+      <h3>Import receipts from kroger.com</h3>
+      <p className="small">
+        Add this bookmark once. Then open a receipt on kroger.com → Purchases and tap it: the receipt opens here, ready to
+        review. It reads only the page you have open; your Kroger login stays with Kroger.
+      </p>
+      <p className="small">
+        <strong>Computer:</strong> drag this to your bookmarks bar:{' '}
+        <a ref={link} className="button" onClick={(e) => e.preventDefault()}>Send receipt to Larder</a>
+      </p>
+      <p className="small">
+        <strong>Android Chrome:</strong> copy the code, bookmark any page, edit that bookmark, paste the code as its URL and
+        name it <em>Larder</em>. On the receipt page, type <em>Larder</em> in the address bar and tap the bookmark.
+      </p>
+      <textarea id="bookmarklet-code" readOnly rows={3} value={code} className="raw-ocr" />
+      <div className="form-actions">
+        <button onClick={copy}>{copied ? 'Copied' : 'Copy code'}</button>
+      </div>
+    </div>
   );
 }

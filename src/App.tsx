@@ -6,6 +6,10 @@ import { Macros } from './components/Macros';
 import { Recipes } from './components/Recipes';
 import { Settings } from './components/Settings';
 import { Spending } from './components/Spending';
+import { takeImportFromHash } from './lib/krogerBookmarklet';
+
+// Receipt text sent by the kroger.com bookmarklet, taken once at startup.
+const importedReceipt = takeImportFromHash();
 
 const TABS = [
   { id: 'home', label: 'Home', icon: '⌂' },
@@ -20,7 +24,7 @@ const TABS = [
 type Tab = (typeof TABS)[number]['id'];
 
 export default function App() {
-  const [tab, setTab] = useState<Tab>(() => (location.hash.slice(1) as Tab) || 'home');
+  const [tab, setTab] = useState<Tab>(() => (importedReceipt ? 'inventory' : (location.hash.slice(1) as Tab) || 'home'));
   const go = (t: string) => {
     setTab(t as Tab);
     try {
@@ -49,7 +53,7 @@ export default function App() {
           </p>
         )}
         {tab === 'home' && <Home go={go} />}
-        {tab === 'inventory' && <Inventory />}
+        {tab === 'inventory' && <Inventory importedReceipt={importedReceipt} />}
         {tab === 'recipes' && <Recipes />}
         {tab === 'macros' && <Macros />}
         {tab === 'spending' && <Spending />}

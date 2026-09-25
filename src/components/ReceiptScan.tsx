@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { db } from '../db';
 import { todayISO } from '../lib/dates';
 import { estimateExpiry } from '../lib/expiry';
@@ -25,7 +25,7 @@ const blankRow = (): Row => ({
   include: true,
 });
 
-export function ReceiptScan({ onDone }: { onDone: () => void }) {
+export function ReceiptScan({ onDone, initialText }: { onDone: () => void; initialText?: string | null }) {
   const input = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<'idle' | 'reading' | 'review' | 'paste'>('idle');
   const [pasted, setPasted] = useState('');
@@ -52,6 +52,13 @@ export function ReceiptScan({ onDone }: { onDone: () => void }) {
     setTax(parsed.tax);
     setStatus('review');
   }
+
+  // Receipt handed over by the kroger.com bookmarklet: go straight to review.
+  useEffect(() => {
+    if (!initialText) return;
+    review(initialText.split('\n')).catch((e: Error) => setError(e.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialText]);
 
   async function onFiles(files: FileList | null) {
     if (!files?.length) return;

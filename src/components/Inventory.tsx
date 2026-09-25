@@ -147,10 +147,11 @@ function AddItemForm({ onDone }: { onDone: () => void }) {
   );
 }
 
-export function Inventory() {
+export function Inventory({ importedReceipt }: { importedReceipt?: string | null }) {
   const today = todayISO();
   const [adding, setAdding] = useState(false);
-  const [scanning, setScanning] = useState(false);
+  const [pendingImport, setPendingImport] = useState(importedReceipt ?? null);
+  const [scanning, setScanning] = useState(Boolean(importedReceipt));
   const [filter, setFilter] = useState<'all' | Location>('all');
   const [showClosed, setShowClosed] = useState(false);
   const items = useLiveQuery(() => db.items.orderBy('expiresOn').toArray(), []) ?? [];
@@ -169,7 +170,15 @@ export function Inventory() {
           </div>
         )}
       </header>
-      {scanning && <ReceiptScan onDone={() => setScanning(false)} />}
+      {scanning && (
+        <ReceiptScan
+          initialText={pendingImport}
+          onDone={() => {
+            setScanning(false);
+            setPendingImport(null);
+          }}
+        />
+      )}
       {adding && <AddItemForm onDone={() => setAdding(false)} />}
       <div className="tabs-inline" role="tablist">
         {(['all', ...LOCATIONS] as const).map((l) => (
