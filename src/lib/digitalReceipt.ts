@@ -42,7 +42,27 @@ export function cleanDigitalName(raw: string): string {
   return name.replace(/\s+[\d.]+\s*(fl oz|oz)\s*$/i, '').trim();
 }
 
-export function parseDigitalReceipt(lines: string[], aliases: Map<string, Alias> = new Map()): ParsedReceipt {
+/**
+ * Copied web-page text puts a value under its label ("Order Total" / "$83.16",
+ * "Ciresa Fontina Cheese, 1 lb" / "$5.60"). Join those back into one line.
+ */
+function joinValueLines(lines: string[]): string[] {
+  const out: string[] = [];
+  const money = /^[-+]?\s*\$\s*[\d,]+\.\d{2}$/;
+  for (const raw of lines) {
+    const line = raw.trim();
+    const prev = out[out.length - 1];
+    if (money.test(line) && prev && /[a-z]/i.test(prev) && !/\$\s*[\d,]+\.\d{2}\s*$/.test(prev) && !/\beach\b|^upc/i.test(prev)) {
+      out[out.length - 1] = `${prev} ${line}`;
+    } else {
+      out.push(line);
+    }
+  }
+  return out;
+}
+
+export function parseDigitalReceipt(rawLines: string[], aliases: Map<string, Alias> = new Map()): ParsedReceipt {
+  const lines = joinValueLines(rawLines);
   const items: ParsedItem[] = [];
   let date = '';
   let total = 0;

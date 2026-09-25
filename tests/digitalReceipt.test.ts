@@ -141,3 +141,11 @@ describe('Kroger digital receipt pasted from the website', () => {
     ]);
   });
 });
+
+describe('Kroger receipt copied from the web page (select all, copy)', () => {
+  it('joins labels and values split across lines, so totals and tax are read', () => {
+    const r = parseReceipt(['Order Date: Sep. 17, 2026', 'Order Summary', 'Sales Tax', '+$2.57', 'Order Total', '$83.16', 'Item Details', '10 Items', 'Ciresa Fontina Cheese, 1 lb', '$5.60', '0.35 lbs x $16.00 each', 'UPC: 0028648130000', 'Payment Details', 'VISA 2573', '$83.16']);
+    expect(r).toMatchObject({ total: 83.16, tax: 2.57, date: '2026-09-17' });
+    expect(r.items.map((i) => [i.name, i.quantity, i.price])).toEqual([['Ciresa Fontina Cheese', 0.35, 5.6]]);
+  });
+});

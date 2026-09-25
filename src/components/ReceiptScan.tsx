@@ -80,6 +80,29 @@ export function ReceiptScan({ onDone, initialText }: { onDone: () => void; initi
     }
   }
 
+  /** One tap after copying the receipt on kroger.com: read the clipboard and review. */
+  async function fromClipboard() {
+    setError('');
+    let text = '';
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      // Clipboard reading refused or unsupported: fall back to the paste box.
+      setStatus('paste');
+      return;
+    }
+    if (!text.trim()) {
+      setError('The clipboard is empty. On the Kroger receipt page, select all and copy first.');
+      return;
+    }
+    setPasted(text);
+    try {
+      await review(text.split(/\r?\n/));
+    } catch (e) {
+      setError((e as Error).message.replace('Retake the photo flat, in good light, filling the frame with the receipt.', "That doesn't look like a receipt. Copy the whole Kroger receipt page and try again."));
+    }
+  }
+
   async function onPaste() {
     setError('');
     try {
@@ -129,16 +152,16 @@ export function ReceiptScan({ onDone, initialText }: { onDone: () => void; initi
       {status === 'idle' && (
         <>
           <p className="small">
-            <strong>Best:</strong> a receipt from kroger.com → Purchases, as a PDF, or paste its text. Names and prices come
-            through exactly.
+            <strong>Best, from kroger.com:</strong> open the receipt under Purchases, select all and copy, then tap{' '}
+            <em>Paste Kroger receipt</em>. Names and prices come through exactly.
           </p>
           <p className="small muted">
             Paper receipt: lay it flat in good light and fill the frame. For a long one, take several overlapping photos top to
             bottom. Reading happens on your phone; nothing is uploaded.
           </p>
           <div className="form-actions">
-            <button className="primary" onClick={() => input.current?.click()}>Photo or PDF</button>
-            <button onClick={() => setStatus('paste')}>Paste receipt text</button>
+            <button className="primary" onClick={fromClipboard}>Paste Kroger receipt</button>
+            <button onClick={() => input.current?.click()}>Photo or PDF</button>
             <button onClick={onDone}>Cancel</button>
           </div>
         </>
@@ -146,7 +169,7 @@ export function ReceiptScan({ onDone, initialText }: { onDone: () => void; initi
       {status === 'paste' && (
         <div className="form">
           <label className="wide">
-            Open the receipt on kroger.com → Purchases, select all (Ctrl+A), copy, and paste here
+            Open the receipt on kroger.com → Purchases, select all, copy, and paste here (long-press → Paste on a phone)
             <textarea id="receipt-text" rows={8} value={pasted} onChange={(e) => setPasted(e.target.value)} />
           </label>
           <div className="form-actions wide">
